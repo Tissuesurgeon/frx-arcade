@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   useAccount,
   useConnect,
@@ -14,10 +14,15 @@ import {
   readOkxAccounts,
   requestOkxAccounts,
   signOkxPersonalMessage,
-  syncWagmiAfterOkxConnect,
 } from "@/lib/wagmi/okxAuth";
 import { isOkxWalletInstalled, parseWalletConnectError } from "@/lib/wagmi/okx";
 import { useSessionStore } from "@/lib/stores/session";
+
+type AuthChallenge = {
+  message: string;
+  nonce: string;
+  wallet: string;
+};
 
 function friendlyConnectError(err: unknown): string {
   if (err instanceof UserRejectedRequestError) {
@@ -33,6 +38,11 @@ export function useWalletAuth() {
   const { disconnect } = useDisconnect();
   const { token, wallet, setSession, clearSession } = useSessionStore();
   const [linkedWallet, setLinkedWallet] = useState<`0x${string}` | null>(null);
+  const [pendingChallenge, setPendingChallenge] = useState<AuthChallenge | null>(
+    null
+  );
+  const [challengeLoading, setChallengeLoading] = useState(false);
+  const challengeWalletRef = useRef<string | null>(null);
 
   const okxConnector =
     connectors.find((c) => c.id === OKX_WALLET_CONNECTOR_ID) ?? okxWalletConnector;
@@ -75,7 +85,39 @@ export function useWalletAuth() {
     }
   }, [token, wallet, activeWallet, clearSession, disconnect]);
 
-  /** Step 1 — OKX connect popup only (no chain switch, no sign). */
+  /** Prefetch SIWE challenge so the sign button can call personal_sign immediately (user gesture). */
+  const prefetchSignInChallenge = useCallback(
+    async (walletOverride?: `0x${string}`): Promise<AuthChallenge | null> => {
+      const walletAddr =
+        walletOverride ?? activeWallet ?? (await readOkxAccounts());
+      if (!walletAddr) return null;
+
+      const normalized = walletAddr.toLowerCase();
+      if (
+        pendingChallenge?.wallet === normalized &&
+        challengeWalletRef.current === normalized
+      ) {
+        return pendingChallenge;
+      }
+
+      setChallengeLoading(true);
+      try {
+        const { message, nonce } = await apiFetch<{ message: string; nonce: string }>(
+          "/api/auth/challenge",
+          { method: "POST", body: JSON.stringify({ wallet: walletAddr }) }
+        );
+        const challenge: AuthChallenge = { message, nonce, wallet: normalized };
+        challengeWalletRef.current = normalized;
+        setPendingChallenge(challenge);
+        return challenge;
+      } finally {
+        setChallengeLoading(false);
+      }
+    },
+    [activeWallet, pendingChallenge]
+  );
+
+  /** Step 1 — OKX connect popup only (no wagmi reconnect, no sign). */
   const connectWallet = useCallback(async (): Promise<`0x${string}`> => {
     if (!isOkxWalletInstalled()) {
       throw new Error(
@@ -84,58 +126,74 @@ export function useWalletAuth() {
     }
     const walletAddr = await requestOkxAccounts();
     setLinkedWallet(walletAddr);
-    void syncWagmiAfterOkxConnect();
+    void prefetchSignInChallenge(walletAddr);
     return walletAddr;
-  }, []);
+  }, [prefetchSignInChallenge]);
 
-  /** Step 2 — SIWE sign popup only (wallet must already be linked). */
-  const signIn = useCallback(async (walletOverride?: `0x${string}`) => {
-    const walletAddr =
-      walletOverride ??
-      activeWallet ??
-      (await readOkxAccounts()) ??
-      (await requestOkxAccounts());
+  /**
+   * Step 2 — SIWE sign popup only.
+   * Uses a prefetched challenge when possible so personal_sign runs right after the click.
+   */
+  const signIn = useCallback(
+    async (walletOverride?: `0x${string}`) => {
+      const walletAddr =
+        walletOverride ??
+        activeWallet ??
+        (await readOkxAccounts()) ??
+        (await requestOkxAccounts());
 
-    setLinkedWallet(walletAddr);
+      setLinkedWallet(walletAddr);
+      const normalized = walletAddr.toLowerCase();
 
-    const session = useSessionStore.getState();
-    if (
-      session.wallet &&
-      session.wallet.toLowerCase() !== walletAddr.toLowerCase()
-    ) {
-      clearSession();
-    }
+      const session = useSessionStore.getState();
+      if (session.wallet && session.wallet.toLowerCase() !== normalized) {
+        clearSession();
+      }
 
-    const { message } = await apiFetch<{ message: string; nonce: string }>(
-      "/api/auth/challenge",
-      { method: "POST", body: JSON.stringify({ wallet: walletAddr }) }
-    );
+      let challenge = pendingChallenge;
+      if (!challenge || challenge.wallet !== normalized) {
+        challenge =
+          (await prefetchSignInChallenge(walletAddr)) ??
+          (() => {
+            throw new Error(
+              "Could not prepare sign-in message. Check API connection and try again."
+            );
+          })();
+      }
 
-    const signature = await signOkxPersonalMessage(walletAddr, message);
+      const signature = await signOkxPersonalMessage(walletAddr, challenge.message);
 
-    const result = await apiFetch<{
-      token: string;
-      user: {
-        id: string;
-        wallet: string;
-        creditBalance: number;
-        role: "PLAYER" | "ADMIN";
-      };
-    }>("/api/auth/verify", {
-      method: "POST",
-      body: JSON.stringify({ wallet: walletAddr, message, signature }),
-    });
+      const result = await apiFetch<{
+        token: string;
+        user: {
+          id: string;
+          wallet: string;
+          creditBalance: number;
+          role: "PLAYER" | "ADMIN";
+        };
+      }>("/api/auth/verify", {
+        method: "POST",
+        body: JSON.stringify({
+          wallet: walletAddr,
+          message: challenge.message,
+          signature,
+        }),
+      });
 
-    setSession({
-      token: result.token,
-      wallet: result.user.wallet,
-      creditBalance: result.user.creditBalance,
-      role: result.user.role,
-    });
+      setPendingChallenge(null);
+      challengeWalletRef.current = null;
 
-    void syncWagmiAfterOkxConnect();
-    return result;
-  }, [activeWallet, clearSession, setSession]);
+      setSession({
+        token: result.token,
+        wallet: result.user.wallet,
+        creditBalance: result.user.creditBalance,
+        role: result.user.role,
+      });
+
+      return result;
+    },
+    [activeWallet, clearSession, pendingChallenge, prefetchSignInChallenge, setSession]
+  );
 
   const ensureConnected = useCallback(async (): Promise<`0x${string}` | undefined> => {
     if (activeWallet) return activeWallet;
@@ -146,6 +204,8 @@ export function useWalletAuth() {
   const signOut = useCallback(async () => {
     clearSession();
     setLinkedWallet(null);
+    setPendingChallenge(null);
+    challengeWalletRef.current = null;
     disconnect();
     await apiFetch("/api/auth/logout", { method: "POST" }).catch(() => {});
   }, [clearSession, disconnect]);
@@ -166,6 +226,7 @@ export function useWalletAuth() {
 
     let authToken = walletMatches ? session.token : null;
     if (!authToken) {
+      await prefetchSignInChallenge(walletAddr);
       await signIn(walletAddr);
       authToken = useSessionStore.getState().token;
     }
@@ -185,7 +246,15 @@ export function useWalletAuth() {
     }
 
     return { token: authToken, wallet: resolvedWallet };
-  }, [activeWallet, chainId, clearSession, connectWallet, signIn, switchChainAsync]);
+  }, [
+    activeWallet,
+    chainId,
+    clearSession,
+    connectWallet,
+    prefetchSignInChallenge,
+    signIn,
+    switchChainAsync,
+  ]);
 
   return {
     address: activeWallet,
@@ -198,9 +267,12 @@ export function useWalletAuth() {
     wallet,
     connecting,
     connectError,
+    challengeLoading,
+    signInReady: !!pendingChallenge && pendingChallenge.wallet === activeWallet?.toLowerCase(),
     friendlyConnectError,
     okxInstalled: isOkxWalletInstalled(),
     connectWallet,
+    prefetchSignInChallenge,
     ensureConnected,
     connectOkx: connectWallet,
     signIn,

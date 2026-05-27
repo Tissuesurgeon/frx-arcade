@@ -4,7 +4,7 @@ import { createConfig, createStorage, fallback, http, noopStorage } from "wagmi"
 import { injected } from "wagmi/connectors";
 import { defineChain } from "viem";
 import { XLAYER_CHAIN_ID } from "@frx/shared";
-import { getOkxEthereumProvider } from "./okx";
+import { getOkxWalletProvider } from "./okx";
 
 const XLAYER_RPC_URLS = [
   process.env.NEXT_PUBLIC_XLAYER_RPC_URL,
@@ -32,7 +32,7 @@ export const OKX_WALLET_CONNECTOR_ID = "okxWallet";
 
 export const okxWalletConnector = injected({
   target() {
-    const provider = getOkxEthereumProvider();
+    const provider = getOkxWalletProvider();
     if (!provider) return undefined;
     return {
       id: OKX_WALLET_CONNECTOR_ID,

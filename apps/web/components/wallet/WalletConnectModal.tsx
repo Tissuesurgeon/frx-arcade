@@ -18,6 +18,7 @@ export function WalletConnectModal() {
   const {
     connectWallet,
     signIn,
+    prefetchSignInChallenge,
     connecting,
     connectError,
     friendlyConnectError,
@@ -25,6 +26,8 @@ export function WalletConnectModal() {
     address,
     token,
     okxInstalled,
+    challengeLoading,
+    signInReady,
   } = useWalletAuth();
 
   const [detectedOkx, setDetectedOkx] = useState(false);
@@ -48,6 +51,15 @@ export function WalletConnectModal() {
   const errorMessage =
     localError ??
     (connectError ? friendlyConnectError(connectError) : null);
+
+  const step = !token ? (isWalletLinked ? 2 : 1) : 3;
+
+  useEffect(() => {
+    if (!connectOpen || step !== 2 || !address) return;
+    void prefetchSignInChallenge(address).catch((err) => {
+      setLocalError(friendlyConnectError(err));
+    });
+  }, [connectOpen, step, address, prefetchSignInChallenge, friendlyConnectError]);
 
   async function handleConnect() {
     setLocalError(null);
@@ -73,8 +85,6 @@ export function WalletConnectModal() {
       setBusy(false);
     }
   }
-
-  const step = !token ? (isWalletLinked ? 2 : 1) : 3;
 
   return (
     <Dialog.Root open={connectOpen} onOpenChange={setConnectOpen}>
@@ -141,13 +151,17 @@ export function WalletConnectModal() {
                   <>
                     <p className="rounded-lg border border-emerald-500/30 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-200">
                       OKX linked
-                      {address ? ` (${truncateAddress(address)})` : ""}. Click below to open
-                      the sign-in approval in OKX.
+                      {address ? ` (${truncateAddress(address)})` : ""}.{" "}
+                      {challengeLoading
+                        ? "Preparing sign-in message…"
+                        : signInReady
+                          ? "Click below — OKX will ask you to approve the message."
+                          : "Preparing sign-in message…"}
                     </p>
                     <button
                       type="button"
                       onClick={() => void handleSignIn()}
-                      disabled={busy}
+                      disabled={busy || challengeLoading}
                       className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-3 font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
                     >
                       {busy ? (

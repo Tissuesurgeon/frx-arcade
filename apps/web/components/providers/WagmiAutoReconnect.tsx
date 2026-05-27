@@ -14,7 +14,11 @@ export function WagmiAutoReconnect() {
 
   useEffect(() => {
     if (!mounted) return;
-    void reconnectAsync().catch(() => {});
+    // Defer so OKX connect/sign clicks are not competing with wagmi reconnect (one pending request).
+    const timer = window.setTimeout(() => {
+      void reconnectAsync().catch(() => {});
+    }, 4_000);
+    return () => window.clearTimeout(timer);
   }, [mounted, reconnectAsync]);
 
   return null;

@@ -24,17 +24,20 @@ function isEip1193(p: unknown): p is EIP1193Provider {
   );
 }
 
-/** Resolve OKX Wallet EVM provider across injection styles (extension / multi-wallet). */
-export function getOkxEthereumProvider(
-  win?: Window
-): EIP1193Provider | undefined {
+/**
+ * OKX Provider API: use top-level `window.okxwallet` for EVM RPC (eth_requestAccounts, personal_sign).
+ * @see https://github.com/gecyg601/okx-wallet-integration — params: ["message", "account"]
+ */
+export function getOkxWalletProvider(win?: Window): EIP1193Provider | undefined {
   const w = (win ?? (typeof window !== "undefined" ? window : undefined)) as
     | OkxWindow
     | undefined;
   if (!w) return undefined;
 
-  if (isEip1193(w.okxwallet?.ethereum)) return w.okxwallet.ethereum;
   if (isEip1193(w.okxwallet)) return w.okxwallet;
+
+  const okxNested = w.okxwallet as OkxWindow["okxwallet"];
+  if (okxNested && isEip1193(okxNested.ethereum)) return okxNested.ethereum;
 
   const eth = w.ethereum;
   if (eth?.providers?.length) {
@@ -53,9 +56,14 @@ export function getOkxEthereumProvider(
   return undefined;
 }
 
+/** @deprecated Use getOkxWalletProvider — kept for wagmi connector wiring. */
+export function getOkxEthereumProvider(win?: Window): EIP1193Provider | undefined {
+  return getOkxWalletProvider(win);
+}
+
 /** Extension script present (may still be locked / empty keyring). */
 export function isOkxWalletInstalled(): boolean {
-  return getOkxEthereumProvider() !== undefined;
+  return getOkxWalletProvider() !== undefined;
 }
 
 /** Human-readable errors for OKX / extension issues seen in the browser console. */
@@ -93,6 +101,10 @@ export function parseWalletConnectError(err: unknown): string {
 
   if (/talisman|not been configured/i.test(msg)) {
     return "Another wallet extension (Talisman) is interfering. Disable unused wallet extensions for this site, keep only OKX, and refresh.";
+  }
+
+  if (/pending.*request|already processing/i.test(msg)) {
+    return "OKX Wallet is busy with another request. Close any open OKX popups, wait a moment, then try again.";
   }
 
   if (msg) return msg;
