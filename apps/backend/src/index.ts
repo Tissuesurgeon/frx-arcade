@@ -1,6 +1,7 @@
 import "dotenv/config";
 import http from "http";
 import { createApp } from "./app";
+import { connectDatabase } from "./lib/connectDatabase";
 import { connectRedis } from "./lib/redis";
 import { attachSocketServer } from "./socket";
 import { startAgentWorker } from "./workers/agent";
@@ -12,6 +13,7 @@ import { startJackpotEpochWorker } from "./workers/jackpotEpoch";
 const PORT = Number(process.env.PORT ?? 4000);
 
 async function main() {
+  await connectDatabase();
   await connectRedis();
 
   const app = createApp();

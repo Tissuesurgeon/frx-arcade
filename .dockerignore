@@ -1,0 +1,32 @@
+# Dependencies & build output
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+
+# Local env & secrets
+.env
+.env.*
+!.env.example
+
+# Git & IDE
+.git
+.gitignore
+.cursor
+.vscode
+**/*.md
+!apps/backend/README.md
+
+# Frontend (not needed for backend image)
+apps/web
+
+# Contracts / Foundry (large, not used at runtime)
+packages/contracts
+packages/game-engine
+
+# Docker & local infra
+docker-compose.yml
+
+# Tests & misc
+**/*.test.ts
+**/__tests__

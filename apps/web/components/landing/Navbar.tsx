@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
+import { BrandLogo } from "@/components/BrandLogo";
 import { Container } from "@/components/Container";
 import { Button } from "@/components/Button";
 
@@ -23,11 +24,14 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 border-b border-white/10 bg-frx-bg/80 backdrop-blur-xl">
       <Container className="flex h-16 items-center justify-between gap-4">
-        <Link href="/" className="text-lg font-bold tracking-tight">
-          <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-cyan-400 bg-clip-text text-transparent">
-            Frx
+        <Link href="/" className="flex items-center gap-2.5 text-lg font-bold tracking-tight">
+          <BrandLogo size={28} />
+          <span>
+            <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-cyan-400 bg-clip-text text-transparent">
+              Frx
+            </span>
+            <span className="text-white"> Arcade</span>
           </span>
-          <span className="text-white"> Arcade</span>
         </Link>
 
         <nav className="hidden items-center gap-6 lg:flex" aria-label="Main">

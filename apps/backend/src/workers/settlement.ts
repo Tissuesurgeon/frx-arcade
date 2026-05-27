@@ -231,7 +231,9 @@ export async function runSettlementTick() {
 }
 
 export function startSettlementWorker(intervalMs = 3 * 60_000): NodeJS.Timeout {
-  void runSettlementTick();
+  void runSettlementTick().catch((err) => {
+    console.error("[settlement]", err);
+  });
   return setInterval(() => {
     void runSettlementTick().catch((err) => {
       console.error("[settlement]", err);

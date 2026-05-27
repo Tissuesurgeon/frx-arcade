@@ -8,6 +8,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { Container } from "@/components/Container";
+import { BrandLogo } from "@/components/BrandLogo";
 import { WalletDropdown } from "@/components/wallet/WalletDropdown";
 import { useSessionStore } from "@/lib/stores/session";
 
@@ -38,12 +39,15 @@ export function GameShell({ children, fixedViewport = false }: GameShellProps) {
         <Container className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-2 sm:gap-x-4 sm:py-3">
           <Link
             href="/"
-            className="flex shrink-0 items-baseline gap-1 font-bold tracking-tight"
+            className="flex shrink-0 items-center gap-2 font-bold tracking-tight"
           >
-            <span className="bg-gradient-to-r from-violet-400 via-indigo-400 to-cyan-400 bg-clip-text text-lg text-transparent sm:text-xl">
-              FRX
+            <BrandLogo size={28} />
+            <span className="flex items-baseline gap-1">
+              <span className="bg-gradient-to-r from-violet-400 via-indigo-400 to-cyan-400 bg-clip-text text-lg text-transparent sm:text-xl">
+                FRX
+              </span>
+              <span className="text-base text-white sm:text-lg">ARCADE</span>
             </span>
-            <span className="text-base text-white sm:text-lg">ARCADE</span>
           </Link>
 
           <nav className="order-3 flex w-full flex-wrap items-center justify-center gap-4 text-xs sm:order-none sm:w-auto sm:gap-6 sm:text-sm">

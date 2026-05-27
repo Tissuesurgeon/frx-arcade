@@ -57,6 +57,24 @@ Deploy the backend first so you have a public API URL for Vercel.
 
 ### 1.2 Configure the backend service
 
+**Option A — Dockerfile (recommended)**
+
+1. Railway service → **Settings** → **Build** → set **Builder** to **Dockerfile**.
+2. **Dockerfile path:** `apps/backend/Dockerfile`
+3. **Root Directory:** leave empty (repository root — required for npm workspaces).
+4. Generate a public domain under **Networking**.
+
+The image builds `@frx/shared` + `@frx/backend`, runs `prisma db push` on startup, then starts the API. See [`apps/backend/Dockerfile`](apps/backend/Dockerfile).
+
+Local test:
+
+```bash
+docker build -f apps/backend/Dockerfile -t frx-backend .
+docker run --rm -p 4000:4000 --env-file .env frx-backend
+```
+
+**Option B — Nixpacks (no Docker)**
+
 Open the **GitHub-connected service** (not the database services) and set:
 
 | Setting | Value |
@@ -64,25 +82,25 @@ Open the **GitHub-connected service** (not the database services) and set:
 | **Root Directory** | *(leave empty — repo root)* |
 | **Watch Paths** | `apps/backend/**`, `packages/shared/**` |
 
-**Build command:**
+**Build command** (Option B only):
 
 ```bash
 npm ci && npm run build --workspace=@frx/shared && npm run db:generate --workspace=@frx/backend && npm run build --workspace=@frx/backend
 ```
 
-**Start command:**
+**Start command** (Option B only):
 
 ```bash
 npm run start --workspace=@frx/backend
 ```
 
-**Release command** (optional — applies schema on each deploy; this project uses `db push`, not migration files):
+**Release command** (Option B only — optional; Dockerfile runs `db push` on container start):
 
 ```bash
 npm run db:push --workspace=@frx/backend
 ```
 
-> Skip the release command on the first deploy if you prefer to run `db:push` manually once (see §1.5).
+> Skip the release command on the first deploy if you prefer to run `db:push` manually once (see §1.5). With **Dockerfile**, schema is applied automatically when the container starts.
 
 Railway sets **`PORT`** automatically — the backend reads `process.env.PORT` (default `4000` locally).
 
@@ -354,7 +372,21 @@ Local dev: [README.md](README.md) (`docker compose up -d`, `npm run dev`).
 
 You can commit platform config for repeatable deploys.
 
-**`railway.toml`** (repo root):
+**`railway.toml`** (repo root — Dockerfile deploy):
+
+```toml
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "apps/backend/Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 10
+```
+
+**`railway.toml`** (Nixpacks deploy):
 
 ```toml
 [build]
