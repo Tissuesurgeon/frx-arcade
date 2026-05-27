@@ -1,14 +1,17 @@
 import type { EIP1193Provider } from "viem";
 
+type OkxInjectedProvider = EIP1193Provider & {
+  isOkxWallet?: boolean;
+  isOKExWallet?: boolean;
+};
+
 type OkxWindow = Window & {
   okxwallet?: EIP1193Provider & {
     ethereum?: EIP1193Provider;
   };
   okexchain?: EIP1193Provider;
-  ethereum?: EIP1193Provider & {
-    isOkxWallet?: boolean;
-    isOKExWallet?: boolean;
-    providers?: EIP1193Provider[];
+  ethereum?: OkxInjectedProvider & {
+    providers?: OkxInjectedProvider[];
   };
 };
 
@@ -32,9 +35,7 @@ export function getOkxEthereumProvider(): EIP1193Provider | undefined {
   const eth = w.ethereum;
   if (eth?.providers?.length) {
     const okx = eth.providers.find(
-      (p) =>
-        (p as EIP1193Provider & { isOkxWallet?: boolean }).isOkxWallet ||
-        (p as EIP1193Provider & { isOKExWallet?: boolean }).isOKExWallet
+      (p: OkxInjectedProvider) => p.isOkxWallet || p.isOKExWallet
     );
     if (isEip1193(okx)) return okx;
   }

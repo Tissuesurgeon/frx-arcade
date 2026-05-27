@@ -12,6 +12,10 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@frx/shared", "@frx/game-engine"],
   devIndicators: false,
+  eslint: {
+    // eslint-config-next resolves `next` from repo root on Vercel; skip during build
+    ignoreDuringBuilds: true,
+  },
   webpack: (config, { dev }) => {
     if (dev) {
       config.cache = false;
