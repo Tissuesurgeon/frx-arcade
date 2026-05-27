@@ -1,7 +1,7 @@
 "use client";
 
 import { createConfig, fallback, http } from "wagmi";
-import { injected } from "@wagmi/core";
+import { injected } from "wagmi/connectors";
 import { defineChain } from "viem";
 import { XLAYER_CHAIN_ID } from "@frx/shared";
 import { getOkxEthereumProvider } from "./okx";
