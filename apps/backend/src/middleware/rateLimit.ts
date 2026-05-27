@@ -49,3 +49,6 @@ export function initRateLimiters(): void {
     prefix: "score",
   });
 }
+
+// Routes import these at module load — init with in-memory store first.
+initRateLimiters();
