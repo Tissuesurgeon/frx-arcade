@@ -1,0 +1,310 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String   @id @default(uuid())
+  wallet        String   @unique
+  displayName   String?
+  creditBalance Int      @default(0)
+  role          UserRole @default(PLAYER)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  ledgerEntries       CreditLedgerEntry[]
+  participations      TournamentParticipant[]
+  runAttempts         RunAttempt[]
+  submittedScores     SubmittedScore[]
+  moderationFlags     ModerationFlag[]
+  authNonces          AuthNonce[]
+  seasonStats         UserSeasonStats[]
+  qualifications      UserQualification[]
+}
+
+enum UserRole {
+  PLAYER
+  ADMIN
+}
+
+model AuthNonce {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nonce     String   @unique
+  message   String
+  used      Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model CreditLedgerEntry {
+  id           String     @id @default(uuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         LedgerType
+  amount       Int
+  balanceAfter Int
+  txHash       String?
+  metadata     Json?
+  createdAt    DateTime   @default(now())
+
+  @@index([userId, createdAt])
+}
+
+enum LedgerType {
+  DEPOSIT
+  WITHDRAW
+  ENTRY_FEE
+  REWARD
+  DEMO_GRANT
+  ADJUSTMENT
+}
+
+model Season {
+  id        String       @id @default(uuid())
+  name      String
+  tier      SeasonTier
+  status    SeasonStatus @default(ACTIVE)
+  startsAt  DateTime
+  endsAt    DateTime
+  createdAt DateTime     @default(now())
+
+  tournaments Tournament[]
+  userStats   UserSeasonStats[]
+}
+
+enum SeasonTier {
+  MONTHLY
+  QUARTERLY
+  ANNUAL
+}
+
+enum SeasonStatus {
+  ACTIVE
+  CLOSED
+}
+
+model PlatformTreasury {
+  id        String   @id @default("singleton")
+  balance   Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
+model WeeklyJackpotPool {
+  id                       String   @id @default(uuid())
+  creditBalance            Int      @default(0)
+  hookContributionCredits  Int      @default(0)
+  dailyContributionCredits Int      @default(0)
+  startsAt                 DateTime
+  endsAt                   DateTime
+  settled                  Boolean  @default(false)
+  createdAt                DateTime @default(now())
+
+  tournaments     Tournament[]
+  qualifications  UserQualification[]
+}
+
+model UserSeasonStats {
+  id                String   @id @default(uuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  seasonId          String
+  season            Season   @relation(fields: [seasonId], references: [id], onDelete: Cascade)
+  dailyCompletions  Int      @default(0)
+  weeklyEntries     Int      @default(0)
+  totalRewards      Int      @default(0)
+  rank              Int?
+  updatedAt         DateTime @updatedAt
+
+  @@unique([userId, seasonId])
+}
+
+model UserQualification {
+  id                String            @id @default(uuid())
+  userId            String
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  weeklyEpochId     String
+  weeklyEpoch       WeeklyJackpotPool @relation(fields: [weeklyEpochId], references: [id], onDelete: Cascade)
+  dailyCompletions  Int               @default(0)
+  qualifiedAt       DateTime?
+  updatedAt         DateTime          @updatedAt
+
+  @@unique([userId, weeklyEpochId])
+}
+
+model Tournament {
+  id                String           @id @default(uuid())
+  slug              String           @unique
+  title             String
+  type              TournamentType
+  tier              TournamentTier   @default(DAILY)
+  status            TournamentStatus @default(DRAFT)
+  entryFeeCredits   Int              @default(0)
+  prizePoolCredits  Int              @default(0)
+  rewardPoolCredits Int              @default(0)
+  jackpotContributionCredits Int     @default(0)
+  jackpotContributedAt DateTime?
+  playerCount       Int              @default(0)
+  maxPlayers        Int              @default(200)
+  startsAt          DateTime
+  endsAt            DateTime
+  jackpotMultiplier Float            @default(1)
+  seasonId          String?
+  season            Season?          @relation(fields: [seasonId], references: [id])
+  weeklyEpochId     String?
+  weeklyEpoch       WeeklyJackpotPool? @relation(fields: [weeklyEpochId], references: [id])
+  createdBy         TournamentCreator @default(AGENT)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  participants TournamentParticipant[]
+  scores       SubmittedScore[]
+}
+
+enum TournamentType {
+  LIVE
+  SCHEDULED
+  PRACTICE
+  JACKPOT
+  DAILY
+  WEEKLY_JACKPOT
+}
+
+enum TournamentTier {
+  DAILY
+  WEEKLY
+}
+
+enum TournamentCreator {
+  AGENT
+  ADMIN
+  SYSTEM
+}
+
+enum TournamentStatus {
+  DRAFT
+  OPEN
+  LIVE
+  CLOSED
+  SETTLED
+}
+
+model TournamentParticipant {
+  id            String     @id @default(uuid())
+  tournamentId  String
+  tournament    Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  joinedAt      DateTime   @default(now())
+  totalScore    Int        @default(0)
+  rank          Int?
+  rewardCredits Int        @default(0)
+  attemptsUsed  Int        @default(0)
+  completedAt   DateTime?
+
+  runAttempts RunAttempt[]
+
+  @@unique([tournamentId, userId])
+}
+
+model RunAttempt {
+  id            String                @id @default(uuid())
+  participantId String
+  participant   TournamentParticipant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attemptIndex  Int
+  matches       Int                   @default(0)
+  durationMs    Int                   @default(0)
+  eventHash     String
+  status        ScoreStatus           @default(PENDING)
+  createdAt     DateTime              @default(now())
+
+  @@unique([participantId, attemptIndex])
+}
+
+model SubmittedScore {
+  id           String      @id @default(uuid())
+  tournamentId String
+  tournament   Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  totalScore   Int
+  attempt1     Int
+  attempt2     Int
+  attempt3     Int
+  status       ScoreStatus @default(PENDING)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@unique([tournamentId, userId])
+}
+
+enum ScoreStatus {
+  PENDING
+  VALIDATED
+  FLAGGED
+  REJECTED
+}
+
+model AISignal {
+  id        String           @id @default(uuid())
+  severity  AISignalSeverity
+  category  String
+  title     String
+  summary   String
+  metadata  Json?
+  createdAt DateTime         @default(now())
+}
+
+enum AISignalSeverity {
+  INFO
+  WARN
+  CRITICAL
+}
+
+model ModerationFlag {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reason    String
+  scoreId   String?
+  metadata  Json?
+  resolved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model JackpotEpoch {
+  id        String   @id @default(uuid())
+  poolWei   String
+  startsAt  DateTime
+  endsAt    DateTime
+  settled   Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model HookMetricsDaily {
+  id                   String   @id @default(uuid())
+  date                 DateTime @unique @db.Date
+  totalSwaps           Int      @default(0)
+  treasuryInflowWei    String   @default("0")
+  jackpotVolumeWei     String   @default("0")
+  tournamentFundingWei String   @default("0")
+  ecosystemVolumeWei   String   @default("0")
+  liquidityScore       Float    @default(0)
+  createdAt            DateTime @default(now())
+}
+
+model ScoreNonce {
+  id        String   @id @default(uuid())
+  nonce     String   @unique
+  wallet    String
+  used      Boolean  @default(false)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}

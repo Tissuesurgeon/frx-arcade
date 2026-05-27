@@ -1,0 +1,18 @@
+{
+  "network": "xlayer-testnet",
+  "chainId": 1952,
+  "deployedAt": "2026-05-24",
+  "deployer": "0x909e948cB770dEc9549da1FA4B3BcB615331e3ff",
+  "hookDeployBlock": 31262833,
+  "contracts": {
+    "poolManager": "0xF33dF372A35cD2647f56a3804e5e28E41dD730B3",
+    "treasuryVault": "0xc5766b9edd22394a8ac20E82ed2D950707BEBB87",
+    "creditManager": "0x02b52d26059be256f1F13cb84812572Ae6a88F86",
+    "arcadeQuoteToken": "0x0848CF8bc8E3385E282C69F05Cba2006249c7FbC",
+    "frxArcadeHook": "0xE01EBdfD422b64b3F3285D9F610C1f33E2444044",
+    "swapCreditRouter": "0x9f052DE2070Ea59C96851C08462aE3479fde5140",
+    "tournamentPool": "0xa5f63503e03fd59f02FD42bAa749461B0d2b5D01",
+    "rewardDistributor": "0x68B7379b9b081376fdeCde21e16a681EB5110296",
+    "poolId": "0x743ec05fe7ada8a54e35273a3836a3904596c0fe65094f2ac1931c8817bb266a"
+  }
+}
