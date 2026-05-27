@@ -6,12 +6,13 @@ import type {
 } from "@frx/shared";
 import { SOCKET_NAMESPACES } from "@frx/shared";
 import { getCorsOrigin } from "../lib/cors";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "../lib/prisma";
 import { buildJackpotTickPayload, setSocketServer } from "./broadcast";
 
-const ACTIVE_TOURNAMENT_FEED_WHERE = {
-  status: { in: ["OPEN", "LIVE", "CLOSED"] as const },
-  type: { in: ["DAILY", "WEEKLY_JACKPOT", "PRACTICE"] as const },
+const ACTIVE_TOURNAMENT_FEED_WHERE: Prisma.TournamentWhereInput = {
+  status: { in: ["OPEN", "LIVE", "CLOSED"] },
+  type: { in: ["DAILY", "WEEKLY_JACKPOT", "PRACTICE"] },
 };
 
 export function attachSocketServer(httpServer: HttpServer) {

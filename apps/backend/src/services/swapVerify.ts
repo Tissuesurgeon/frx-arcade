@@ -3,7 +3,7 @@ import {
   type Hash,
   type Hex,
 } from "viem";
-import { computeCreditsFromOkbWeiPriceE8 } from "@frx/shared";
+import { computeCreditsFromOkbWeiPriceE8, XLAYER_CHAIN_ID } from "@frx/shared";
 import { createXLayerPublicClient } from "../lib/xlayerRpc";
 import { prisma } from "../lib/prisma";
 
