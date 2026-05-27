@@ -29,14 +29,14 @@ RUN apk add --no-cache wget
 COPY package.json package-lock.json ./
 COPY apps/backend/package.json apps/backend/
 COPY packages/shared/package.json packages/shared/
-RUN npm ci --include-workspace-root --workspace=@frx/backend --workspace=@frx/shared --omit=dev \
-  && npm install --no-save prisma@6.1.0
+RUN npm ci --include-workspace-root --workspace=@frx/backend --workspace=@frx/shared --omit=dev
 
 COPY --from=build /app/packages/shared/dist ./packages/shared/dist
 COPY --from=build /app/apps/backend/dist ./apps/backend/dist
 COPY --from=build /app/apps/backend/prisma ./apps/backend/prisma
 COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=build /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=build /app/node_modules/prisma ./node_modules/prisma
 COPY apps/backend/docker-entrypoint.sh ./apps/backend/docker-entrypoint.sh
 RUN chmod +x ./apps/backend/docker-entrypoint.sh
 
