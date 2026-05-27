@@ -18,8 +18,10 @@ export function Providers({ children }: { children: ReactNode }) {
 
   return (
     <WagmiProvider config={wagmiConfig}>
-      <WagmiAutoReconnect />
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <WagmiAutoReconnect />
+        {children}
+      </QueryClientProvider>
     </WagmiProvider>
   );
 }
