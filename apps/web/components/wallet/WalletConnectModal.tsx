@@ -74,6 +74,14 @@ export function WalletConnectModal() {
   }
 
   async function handleSignIn() {
+    if (!signInReady) {
+      setLocalError(
+        challengeLoading
+          ? "Preparing sign-in message…"
+          : "Could not load sign-in message. Check API connection and try again."
+      );
+      return;
+    }
     setLocalError(null);
     setBusy(true);
     try {
@@ -161,7 +169,7 @@ export function WalletConnectModal() {
                     <button
                       type="button"
                       onClick={() => void handleSignIn()}
-                      disabled={busy || challengeLoading}
+                      disabled={busy || challengeLoading || !signInReady}
                       className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-3 font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
                     >
                       {busy ? (

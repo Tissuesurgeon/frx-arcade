@@ -24,6 +24,7 @@ import {
 import { useWalletAuth } from "@/lib/hooks/useWalletAuth";
 import { useSessionStore, useUIStore } from "@/lib/stores/session";
 import { xLayer } from "@/lib/wagmi/config";
+import { sendOkxTransaction } from "@/lib/wagmi/okxAuth";
 import { xLayerPublicClient } from "@/lib/wagmi/xlayerClient";
 import { cn } from "@/lib/utils";
 
@@ -62,7 +63,13 @@ export function DepositModal() {
     isConnected,
     isSignedIn,
     chainId,
+    address,
+    signIn,
+    prefetchSignInChallenge,
+    challengeLoading,
+    signInReady,
     ensureSignedIn,
+    friendlyConnectError,
   } = useWalletAuth();
   const [amount, setAmount] = useState("0.01");
   const [localError, setLocalError] = useState<string | null>(null);
@@ -194,20 +201,40 @@ export function DepositModal() {
       setSigningIn(false);
       setSubmitting(false);
       setTxHash(undefined);
+      return;
     }
-  }, [depositOpen]);
+    if (isConnected && !isSignedIn && address) {
+      void prefetchSignInChallenge(address).catch((err) => {
+        setLocalError(friendlyConnectError(err));
+      });
+    }
+  }, [
+    depositOpen,
+    isConnected,
+    isSignedIn,
+    address,
+    prefetchSignInChallenge,
+    friendlyConnectError,
+  ]);
 
   const busy = submitting || confirming || creditMutation.isPending || signingIn;
 
   async function handleSignIn() {
+    if (!address) return;
+    if (!signInReady) {
+      setLocalError(
+        challengeLoading
+          ? "Preparing sign-in message…"
+          : "Could not load sign-in message. Check API connection and try again."
+      );
+      return;
+    }
     setLocalError(null);
     setSigningIn(true);
     try {
-      await ensureSignedIn();
+      await signIn(address);
     } catch (err) {
-      setLocalError(
-        err instanceof Error ? err.message : "Sign in failed"
-      );
+      setLocalError(friendlyConnectError(err));
     } finally {
       setSigningIn(false);
     }
@@ -231,7 +258,18 @@ export function DepositModal() {
       });
 
       if (!walletClient) {
-        throw new Error("OKX Wallet not ready. Reconnect and try again.");
+        const hash = await sendOkxTransaction({
+          from: walletAddr,
+          to: routerAddress,
+          value,
+          data: encodeFunctionData({
+            abi: swapCreditRouterAbi,
+            functionName: "swapForCredits",
+          }),
+          gas: 120_000n,
+        });
+        setTxHash(hash);
+        return;
       }
 
       const hash = await walletClient.sendTransaction({
@@ -356,9 +394,19 @@ export function DepositModal() {
                 Wallet connected — sign a message to link your FRX account before
                 swapping. Your credits are tied to this sign-in.
               </p>
+              {challengeLoading ? (
+                <p className="flex items-center gap-2 text-xs text-violet-300">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Preparing sign-in message…
+                </p>
+              ) : signInReady ? (
+                <p className="text-xs text-emerald-300">
+                  Ready — click below to open OKX and approve the message.
+                </p>
+              ) : null}
               <button
                 type="button"
-                disabled={signingIn}
+                disabled={signingIn || challengeLoading || !signInReady}
                 onClick={() => void handleSignIn()}
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 py-3 font-semibold text-white disabled:opacity-50"
               >
