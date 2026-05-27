@@ -3,6 +3,7 @@ import http from "http";
 import { createApp } from "./app";
 import { connectDatabase } from "./lib/connectDatabase";
 import { connectRedis } from "./lib/redis";
+import { initRateLimiters } from "./middleware/rateLimit";
 import { attachSocketServer } from "./socket";
 import { startAgentWorker } from "./workers/agent";
 import { startHookIndexer } from "./workers/hookIndexer";
@@ -15,6 +16,7 @@ const PORT = Number(process.env.PORT ?? 4000);
 async function main() {
   await connectDatabase();
   await connectRedis();
+  initRateLimiters();
 
   const app = createApp();
   const server = http.createServer(app);
