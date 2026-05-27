@@ -7,7 +7,7 @@
     "dev:turbo": "next dev --turbopack --port 3000",
     "dev:clean": "rm -rf .next node_modules/.cache && next dev --webpack --port 3000",
     "dev:webpack": "next dev --webpack --port 3000",
-    "build": "next build --webpack",
+    "build": "next build",
     "start": "next start",
     "lint": "next lint"
   },
