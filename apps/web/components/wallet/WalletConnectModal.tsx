@@ -28,6 +28,7 @@ export function WalletConnectModal() {
 
   const [detectedOkx, setDetectedOkx] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+  const [signingIn, setSigningIn] = useState(false);
 
   useEffect(() => {
     if (!connectOpen) return;
@@ -42,22 +43,38 @@ export function WalletConnectModal() {
     };
   }, [connectOpen]);
 
-  async function handleSignIn() {
-    await signIn();
-    setConnectOpen(false);
-  }
-
   const showOkx = detectedOkx || okxInstalled;
+  const busy = connecting || signingIn;
   const errorMessage =
     localError ??
     (connectError ? friendlyConnectError(connectError) : null);
 
-  async function tryConnect() {
+  async function completeSignIn() {
     setLocalError(null);
+    setSigningIn(true);
     try {
-      await connectOkx();
+      await signIn();
+      setConnectOpen(false);
     } catch (err) {
       setLocalError(friendlyConnectError(err));
+    } finally {
+      setSigningIn(false);
+    }
+  }
+
+  async function tryConnectAndSignIn() {
+    setLocalError(null);
+    setSigningIn(true);
+    try {
+      if (!isConnected) {
+        await connectOkx();
+      }
+      await signIn();
+      setConnectOpen(false);
+    } catch (err) {
+      setLocalError(friendlyConnectError(err));
+    } finally {
+      setSigningIn(false);
     }
   }
 
@@ -86,21 +103,21 @@ export function WalletConnectModal() {
           </div>
 
           <div className="mt-6 space-y-3">
-            {!isConnected ? (
+            {!token ? (
               <>
                 {showOkx ? (
                   <button
                     type="button"
-                    onClick={() => void tryConnect()}
-                    disabled={connecting}
+                    onClick={() => void tryConnectAndSignIn()}
+                    disabled={busy}
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 px-4 py-3 font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
                   >
-                    {connecting ? (
+                    {busy ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
                     ) : (
                       <Wallet className="h-4 w-4" />
                     )}
-                    Connect OKX Wallet
+                    {isConnected ? "Sign in to FRX Arcade" : "Connect OKX Wallet"}
                   </button>
                 ) : (
                   <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
@@ -121,6 +138,20 @@ export function WalletConnectModal() {
                   </div>
                 )}
 
+                {isConnected && !token ? (
+                  <button
+                    type="button"
+                    onClick={() => void completeSignIn()}
+                    disabled={busy}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-violet-500/40 bg-violet-500/10 px-4 py-3 text-sm font-semibold text-violet-100 transition hover:bg-violet-500/20 disabled:opacity-60"
+                  >
+                    {signingIn ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : null}
+                    Retry sign in
+                  </button>
+                ) : null}
+
                 <a
                   href={XLAYER_FAUCET_URL}
                   target="_blank"
@@ -139,19 +170,11 @@ export function WalletConnectModal() {
 
                 {showOkx ? (
                   <p className="text-center text-[10px] leading-relaxed text-slate-500">
-                    Unlock OKX, approve connect, and select X Layer Testnet. Disable
+                    Approve connect in OKX, then approve the sign-in message. Disable
                     conflicting wallet extensions if connect fails.
                   </p>
                 ) : null}
               </>
-            ) : !token ? (
-              <button
-                type="button"
-                onClick={() => void handleSignIn()}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-3 font-semibold text-white transition hover:brightness-110"
-              >
-                Sign in to FRX Arcade
-              </button>
             ) : (
               <p className="text-center text-sm text-emerald-400">
                 Wallet connected & signed in

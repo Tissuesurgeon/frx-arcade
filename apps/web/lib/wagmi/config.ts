@@ -31,10 +31,14 @@ export const xLayer = defineChain({
 export const OKX_WALLET_CONNECTOR_ID = "okxWallet";
 
 export const okxWalletConnector = injected({
-  target: {
-    id: OKX_WALLET_CONNECTOR_ID,
-    name: "OKX Wallet",
-    provider: getOkxEthereumProvider,
+  target() {
+    const provider = getOkxEthereumProvider();
+    if (!provider) return undefined;
+    return {
+      id: OKX_WALLET_CONNECTOR_ID,
+      name: "OKX Wallet",
+      provider,
+    };
   },
   shimDisconnect: false,
   unstable_shimAsyncInject: 3_000,

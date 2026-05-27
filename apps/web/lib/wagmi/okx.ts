@@ -25,9 +25,13 @@ function isEip1193(p: unknown): p is EIP1193Provider {
 }
 
 /** Resolve OKX Wallet EVM provider across injection styles (extension / multi-wallet). */
-export function getOkxEthereumProvider(): EIP1193Provider | undefined {
-  if (typeof window === "undefined") return undefined;
-  const w = window as OkxWindow;
+export function getOkxEthereumProvider(
+  win?: Window
+): EIP1193Provider | undefined {
+  const w = (win ?? (typeof window !== "undefined" ? window : undefined)) as
+    | OkxWindow
+    | undefined;
+  if (!w) return undefined;
 
   if (isEip1193(w.okxwallet?.ethereum)) return w.okxwallet.ethereum;
   if (isEip1193(w.okxwallet)) return w.okxwallet;
@@ -69,6 +73,14 @@ export function parseWalletConnectError(err: unknown): string {
 
   if (/user rejected/i.test(msg)) {
     return "Connection cancelled in your wallet. Click Connect again and approve the request in OKX (check for a popup behind this window).";
+  }
+
+  if (/failed to fetch|cannot reach api|networkerror/i.test(msg)) {
+    return "Cannot reach the FRX API. Confirm NEXT_PUBLIC_API_URL on Vercel and CORS_ORIGIN on Railway include this site URL.";
+  }
+
+  if (/cors blocked/i.test(msg)) {
+    return "API blocked this site (CORS). Add your Vercel URL to Railway CORS_ORIGIN and redeploy the backend.";
   }
 
   if (/talisman|not been configured/i.test(msg)) {

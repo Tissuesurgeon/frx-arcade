@@ -10,7 +10,7 @@ import {
 } from "wagmi";
 import { UserRejectedRequestError } from "viem";
 import { apiFetch } from "@/lib/api";
-import { OKX_WALLET_CONNECTOR_ID, xLayer } from "@/lib/wagmi/config";
+import { OKX_WALLET_CONNECTOR_ID, okxWalletConnector, xLayer } from "@/lib/wagmi/config";
 import { isOkxWalletInstalled, parseWalletConnectError } from "@/lib/wagmi/okx";
 import { useSessionStore } from "@/lib/stores/session";
 
@@ -22,7 +22,7 @@ function friendlyConnectError(err: unknown): string {
 }
 
 export function useWalletAuth() {
-  const { address, isConnected, chainId } = useAccount();
+  const { address, isConnected, chainId, status } = useAccount();
   const { connectAsync, connectors, isPending: connecting, error: connectError, reset } =
     useConnect();
   const { switchChainAsync } = useSwitchChain();
@@ -30,16 +30,18 @@ export function useWalletAuth() {
   const { signMessageAsync } = useSignMessage();
   const { token, wallet, setSession, clearSession } = useSessionStore();
 
-  const okxConnector = connectors.find((c) => c.id === OKX_WALLET_CONNECTOR_ID);
+  const okxConnector =
+    connectors.find((c) => c.id === OKX_WALLET_CONNECTOR_ID) ?? okxWalletConnector;
 
   /** Signed in + wagmi connected — use for UI, not wagmi address alone. */
   const isSignedIn = !!token && !!wallet && isConnected;
 
   useEffect(() => {
-    if (!isConnected && token) {
+    if (status === "connecting" || status === "reconnecting") return;
+    if (status === "disconnected" && token) {
       clearSession();
     }
-  }, [isConnected, token, clearSession]);
+  }, [status, token, clearSession]);
 
   useEffect(() => {
     if (
@@ -63,7 +65,10 @@ export function useWalletAuth() {
       );
     }
     reset();
-    const result = await connectAsync({ connector: okxConnector });
+    const result = await connectAsync({
+      connector: okxConnector,
+      chainId: xLayer.id,
+    });
     if (result.chainId !== xLayer.id) {
       try {
         await switchChainAsync({ chainId: xLayer.id });
@@ -85,7 +90,10 @@ export function useWalletAuth() {
   const ensureConnected = useCallback(async (): Promise<`0x${string}` | undefined> => {
     if (address) return address;
     if (!okxConnector || !isOkxWalletInstalled()) return undefined;
-    const result = await connectAsync({ connector: okxConnector });
+    const result = await connectAsync({
+      connector: okxConnector,
+      chainId: xLayer.id,
+    });
     if (result.chainId !== xLayer.id) {
       await switchChainAsync({ chainId: xLayer.id });
     }
@@ -94,7 +102,11 @@ export function useWalletAuth() {
 
   const signIn = useCallback(async () => {
     const wallet = address ?? (await ensureConnected());
-    if (!wallet) return;
+    if (!wallet) {
+      throw new Error(
+        "OKX Wallet not ready. Unlock the extension, switch to X Layer Testnet, and try again."
+      );
+    }
 
     const session = useSessionStore.getState();
     if (
