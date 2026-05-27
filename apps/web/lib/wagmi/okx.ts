@@ -75,6 +75,10 @@ export function parseWalletConnectError(err: unknown): string {
     return "Connection cancelled in your wallet. Click Connect again and approve the request in OKX (check for a popup behind this window).";
   }
 
+  if (/sign.*(fail|reject|denied)/i.test(msg)) {
+    return "Sign-in message was not approved. Open the OKX extension — the sign prompt may be behind this window.";
+  }
+
   if (/connector already connected/i.test(msg)) {
     return "Wallet already linked in OKX — finishing sign in…";
   }

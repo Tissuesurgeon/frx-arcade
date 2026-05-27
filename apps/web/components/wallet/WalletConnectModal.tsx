@@ -136,11 +136,18 @@ export function WalletConnectModal() {
                   </div>
                 )}
 
-                {isWalletConnected && !token ? (
+                {isWalletConnected && !token && !busy ? (
                   <p className="rounded-lg border border-emerald-500/30 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-200">
                     OKX linked
                     {address ? ` (${truncateAddress(address)})` : ""}. Approve the sign-in
                     message to continue.
+                  </p>
+                ) : null}
+
+                {busy && isWalletConnected && !token ? (
+                  <p className="rounded-lg border border-violet-500/30 bg-violet-950/30 px-3 py-2 text-xs text-violet-200">
+                    Check OKX Wallet for the sign-in approval popup (it may open behind
+                    this window).
                   </p>
                 ) : null}
 

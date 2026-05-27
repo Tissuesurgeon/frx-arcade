@@ -5,13 +5,13 @@ import {
   useAccount,
   useConnect,
   useDisconnect,
-  useSignMessage,
   useSwitchChain,
 } from "wagmi";
 import { UserRejectedRequestError } from "viem";
 import { apiFetch } from "@/lib/api";
 import { OKX_WALLET_CONNECTOR_ID, okxWalletConnector, xLayer } from "@/lib/wagmi/config";
 import { connectOkxWallet } from "@/lib/wagmi/connect";
+import { signWalletMessage } from "@/lib/wagmi/sign";
 import { isOkxWalletInstalled, parseWalletConnectError } from "@/lib/wagmi/okx";
 import { useSessionStore } from "@/lib/stores/session";
 
@@ -28,7 +28,6 @@ export function useWalletAuth() {
     useConnect();
   const { switchChainAsync } = useSwitchChain();
   const { disconnect } = useDisconnect();
-  const { signMessageAsync } = useSignMessage();
   const { token, wallet, setSession, clearSession } = useSessionStore();
 
   const okxConnector =
@@ -110,7 +109,7 @@ export function useWalletAuth() {
       "/api/auth/challenge",
       { method: "POST", body: JSON.stringify({ wallet: walletAddr }) }
     );
-    const signature = await signMessageAsync({ message });
+    const signature = await signWalletMessage(walletAddr, message);
     const result = await apiFetch<{
       token: string;
       user: {
@@ -130,7 +129,7 @@ export function useWalletAuth() {
       role: result.user.role,
     });
     return result;
-  }, [clearSession, connectWith, signMessageAsync, setSession]);
+  }, [clearSession, connectWith, setSession]);
 
   const signOut = useCallback(async () => {
     clearSession();

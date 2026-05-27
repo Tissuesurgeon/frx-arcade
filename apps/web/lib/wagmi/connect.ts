@@ -1,6 +1,6 @@
 import type { Connector, CreateConnectorFn } from "wagmi";
 import { ConnectorAlreadyConnectedError } from "wagmi";
-import { getAccount, reconnect } from "wagmi/actions";
+import { connect, getAccount, reconnect } from "wagmi/actions";
 import { wagmiConfig, xLayer } from "./config";
 import { getOkxEthereumProvider } from "./okx";
 
@@ -13,16 +13,16 @@ export function isConnectorAlreadyConnectedError(err: unknown): boolean {
   );
 }
 
-/** Sync wagmi React state when the extension is already connected. */
+/** Ensure wagmi has an active connector session (not just eth_accounts). */
 export async function syncWalletConnection(): Promise<`0x${string}` | undefined> {
   try {
     await reconnect(wagmiConfig);
   } catch {
-    // reconnect may no-op if nothing persisted — fall through to provider read
+    // fall through
   }
 
   const account = getAccount(wagmiConfig);
-  if (account.address) return account.address;
+  if (account.isConnected && account.address) return account.address;
 
   const provider = getOkxEthereumProvider();
   if (!provider) return undefined;
@@ -31,7 +31,19 @@ export async function syncWalletConnection(): Promise<`0x${string}` | undefined>
     method: "eth_accounts",
   })) as string[];
   const addr = accounts[0];
-  return addr ? (addr as `0x${string}`) : undefined;
+  if (!addr) return undefined;
+
+  // eth_accounts alone is not enough for signing — reconnect wagmi to the connector.
+  try {
+    await reconnect(wagmiConfig);
+  } catch {
+    // fall through
+  }
+
+  const after = getAccount(wagmiConfig);
+  if (after.isConnected && after.address) return after.address;
+
+  return addr as `0x${string}`;
 }
 
 type ConnectAsync = (args: {
@@ -49,15 +61,18 @@ export async function connectOkxWallet(options: {
   connectAsync: ConnectAsync;
   switchChainAsync: SwitchChainAsync;
 }): Promise<`0x${string}`> {
-  if (options.address) {
+  const live = getAccount(wagmiConfig);
+  if (live.isConnected && live.address) {
     await ensureXLayer(options.switchChainAsync);
-    return options.address;
+    return live.address;
   }
 
-  const synced = await syncWalletConnection();
-  if (synced) {
-    await ensureXLayer(options.switchChainAsync);
-    return synced;
+  if (options.address) {
+    const synced = getAccount(wagmiConfig);
+    if (synced.isConnected && synced.address) {
+      await ensureXLayer(options.switchChainAsync);
+      return synced.address;
+    }
   }
 
   try {
@@ -78,8 +93,21 @@ export async function connectOkxWallet(options: {
         "OKX Wallet is connected but this site is not authorized. Open OKX, disconnect this site, then connect again."
       );
     }
+
+    const account = getAccount(wagmiConfig);
+    if (!account.isConnected) {
+      try {
+        await connect(wagmiConfig, {
+          connector: options.connector,
+          chainId: xLayer.id,
+        });
+      } catch (connectErr) {
+        if (!isConnectorAlreadyConnectedError(connectErr)) throw connectErr;
+      }
+    }
+
     await ensureXLayer(options.switchChainAsync);
-    return address;
+    return getAccount(wagmiConfig).address ?? address;
   }
 }
 
