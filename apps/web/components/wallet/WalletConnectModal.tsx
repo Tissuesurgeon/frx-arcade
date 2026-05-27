@@ -16,12 +16,12 @@ const XLAYER_FAUCET_URL = "https://web3.okx.com/xlayer/faucet/xlayerfaucet";
 export function WalletConnectModal() {
   const { connectOpen, setConnectOpen } = useUIStore();
   const {
+    connectWallet,
     signIn,
     connecting,
     connectError,
     friendlyConnectError,
-    isConnected,
-    isWalletConnected,
+    isWalletLinked,
     address,
     token,
     okxInstalled,
@@ -29,7 +29,7 @@ export function WalletConnectModal() {
 
   const [detectedOkx, setDetectedOkx] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
-  const [signingIn, setSigningIn] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!connectOpen) return;
@@ -45,36 +45,36 @@ export function WalletConnectModal() {
   }, [connectOpen]);
 
   const showOkx = detectedOkx || okxInstalled;
-  const busy = connecting || signingIn;
   const errorMessage =
     localError ??
     (connectError ? friendlyConnectError(connectError) : null);
 
-  async function completeSignIn() {
+  async function handleConnect() {
     setLocalError(null);
-    setSigningIn(true);
+    setBusy(true);
     try {
-      await signIn();
-      setConnectOpen(false);
+      await connectWallet();
     } catch (err) {
       setLocalError(friendlyConnectError(err));
     } finally {
-      setSigningIn(false);
+      setBusy(false);
     }
   }
 
-  async function tryConnectAndSignIn() {
+  async function handleSignIn() {
     setLocalError(null);
-    setSigningIn(true);
+    setBusy(true);
     try {
       await signIn();
       setConnectOpen(false);
     } catch (err) {
       setLocalError(friendlyConnectError(err));
     } finally {
-      setSigningIn(false);
+      setBusy(false);
     }
   }
+
+  const step = !token ? (isWalletLinked ? 2 : 1) : 3;
 
   return (
     <Dialog.Root open={connectOpen} onOpenChange={setConnectOpen}>
@@ -89,10 +89,14 @@ export function WalletConnectModal() {
           <div className="flex items-start justify-between">
             <div>
               <Dialog.Title className="text-lg font-bold text-white">
-                Connect OKX Wallet
+                {step === 2 ? "Sign in to FRX Arcade" : "Connect OKX Wallet"}
               </Dialog.Title>
               <Dialog.Description className="mt-1 text-sm text-slate-400">
-                OKX Wallet required on X Layer Testnet
+                {step === 1
+                  ? "Step 1 of 2 — link OKX Wallet to this site"
+                  : step === 2
+                    ? "Step 2 of 2 — approve the sign-in message in OKX"
+                    : "You are signed in"}
               </Dialog.Description>
             </div>
             <Dialog.Close className="rounded-lg p-1 text-slate-400 hover:bg-white/5 hover:text-white">
@@ -101,28 +105,13 @@ export function WalletConnectModal() {
           </div>
 
           <div className="mt-6 space-y-3">
-            {!token ? (
+            {step < 3 ? (
               <>
-                {showOkx ? (
-                  <button
-                    type="button"
-                    onClick={() => void tryConnectAndSignIn()}
-                    disabled={busy}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 px-4 py-3 font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
-                  >
-                    {busy ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Wallet className="h-4 w-4" />
-                    )}
-                    {isWalletConnected ? "Sign in to FRX Arcade" : "Connect OKX Wallet"}
-                  </button>
-                ) : (
+                {!showOkx ? (
                   <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
                     <p className="font-medium">OKX Wallet not detected</p>
                     <p className="mt-1 text-xs text-amber-200/80">
-                      Install the extension, unlock it, switch to X Layer Testnet,
-                      then refresh this page.
+                      Install the extension, unlock it, then refresh this page.
                     </p>
                     <a
                       href={OKX_INSTALL_URL}
@@ -134,36 +123,47 @@ export function WalletConnectModal() {
                       <ExternalLink className="h-3 w-3" />
                     </a>
                   </div>
-                )}
-
-                {isWalletConnected && !token && !busy ? (
-                  <p className="rounded-lg border border-emerald-500/30 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-200">
-                    OKX linked
-                    {address ? ` (${truncateAddress(address)})` : ""}. Approve the sign-in
-                    message to continue.
-                  </p>
-                ) : null}
-
-                {busy && isWalletConnected && !token ? (
-                  <p className="rounded-lg border border-violet-500/30 bg-violet-950/30 px-3 py-2 text-xs text-violet-200">
-                    Check OKX Wallet for the sign-in approval popup (it may open behind
-                    this window).
-                  </p>
-                ) : null}
-
-                {isWalletConnected && !token ? (
+                ) : step === 1 ? (
                   <button
                     type="button"
-                    onClick={() => void completeSignIn()}
-                    disabled={busy}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-violet-500/40 bg-violet-500/10 px-4 py-3 text-sm font-semibold text-violet-100 transition hover:bg-violet-500/20 disabled:opacity-60"
+                    onClick={() => void handleConnect()}
+                    disabled={busy || connecting}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 px-4 py-3 font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
                   >
-                    {signingIn ? (
+                    {busy || connecting ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : null}
-                    Retry sign in
+                    ) : (
+                      <Wallet className="h-4 w-4" />
+                    )}
+                    Connect OKX Wallet
                   </button>
-                ) : null}
+                ) : (
+                  <>
+                    <p className="rounded-lg border border-emerald-500/30 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-200">
+                      OKX linked
+                      {address ? ` (${truncateAddress(address)})` : ""}. Click below to open
+                      the sign-in approval in OKX.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void handleSignIn()}
+                      disabled={busy}
+                      className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-3 font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
+                    >
+                      {busy ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Wallet className="h-4 w-4" />
+                      )}
+                      Approve sign-in message
+                    </button>
+                    {busy ? (
+                      <p className="text-center text-[10px] text-violet-300">
+                        Check the OKX extension icon — the sign prompt may be there.
+                      </p>
+                    ) : null}
+                  </>
+                )}
 
                 <a
                   href={XLAYER_FAUCET_URL}
@@ -178,13 +178,6 @@ export function WalletConnectModal() {
                 {errorMessage ? (
                   <p className="rounded-lg border border-red-500/30 bg-red-950/40 px-3 py-2 text-xs text-red-300">
                     {errorMessage}
-                  </p>
-                ) : null}
-
-                {showOkx ? (
-                  <p className="text-center text-[10px] leading-relaxed text-slate-500">
-                    Approve connect in OKX, then approve the sign-in message. Disable
-                    conflicting wallet extensions if connect fails.
                   </p>
                 ) : null}
               </>
