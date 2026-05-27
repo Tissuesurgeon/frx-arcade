@@ -6,7 +6,7 @@ import { ExternalLink, Loader2, Wallet, X } from "lucide-react";
 import { useWalletAuth } from "@/lib/hooks/useWalletAuth";
 import { isOkxWalletInstalled } from "@/lib/wagmi/okx";
 import { useUIStore } from "@/lib/stores/session";
-import { cn } from "@/lib/utils";
+import { cn, truncateAddress } from "@/lib/utils";
 
 const OKX_INSTALL_URL =
   "https://chromewebstore.google.com/detail/okx-wallet/mcohilncbfahbmgdjkbpemccieolpgea";
@@ -16,12 +16,13 @@ const XLAYER_FAUCET_URL = "https://web3.okx.com/xlayer/faucet/xlayerfaucet";
 export function WalletConnectModal() {
   const { connectOpen, setConnectOpen } = useUIStore();
   const {
-    connectOkx,
     signIn,
     connecting,
     connectError,
     friendlyConnectError,
     isConnected,
+    isWalletConnected,
+    address,
     token,
     okxInstalled,
   } = useWalletAuth();
@@ -66,9 +67,6 @@ export function WalletConnectModal() {
     setLocalError(null);
     setSigningIn(true);
     try {
-      if (!isConnected) {
-        await connectOkx();
-      }
       await signIn();
       setConnectOpen(false);
     } catch (err) {
@@ -117,7 +115,7 @@ export function WalletConnectModal() {
                     ) : (
                       <Wallet className="h-4 w-4" />
                     )}
-                    {isConnected ? "Sign in to FRX Arcade" : "Connect OKX Wallet"}
+                    {isWalletConnected ? "Sign in to FRX Arcade" : "Connect OKX Wallet"}
                   </button>
                 ) : (
                   <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
@@ -138,7 +136,15 @@ export function WalletConnectModal() {
                   </div>
                 )}
 
-                {isConnected && !token ? (
+                {isWalletConnected && !token ? (
+                  <p className="rounded-lg border border-emerald-500/30 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-200">
+                    OKX linked
+                    {address ? ` (${truncateAddress(address)})` : ""}. Approve the sign-in
+                    message to continue.
+                  </p>
+                ) : null}
+
+                {isWalletConnected && !token ? (
                   <button
                     type="button"
                     onClick={() => void completeSignIn()}

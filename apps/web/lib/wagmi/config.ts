@@ -1,6 +1,6 @@
 "use client";
 
-import { createConfig, fallback, http } from "wagmi";
+import { createConfig, createStorage, fallback, http, noopStorage } from "wagmi";
 import { injected } from "wagmi/connectors";
 import { defineChain } from "viem";
 import { XLAYER_CHAIN_ID } from "@frx/shared";
@@ -47,6 +47,9 @@ export const okxWalletConnector = injected({
 export const wagmiConfig = createConfig({
   chains: [xLayer],
   connectors: [okxWalletConnector],
+  storage: createStorage({
+    storage: typeof window !== "undefined" ? localStorage : noopStorage,
+  }),
   transports: {
     [xLayer.id]: fallback(
       (XLAYER_RPC_URLS.length > 0 ? XLAYER_RPC_URLS : ["https://testrpc.xlayer.tech/terigon"]).map(

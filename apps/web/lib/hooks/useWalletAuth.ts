@@ -11,6 +11,7 @@ import {
 import { UserRejectedRequestError } from "viem";
 import { apiFetch } from "@/lib/api";
 import { OKX_WALLET_CONNECTOR_ID, okxWalletConnector, xLayer } from "@/lib/wagmi/config";
+import { connectOkxWallet } from "@/lib/wagmi/connect";
 import { isOkxWalletInstalled, parseWalletConnectError } from "@/lib/wagmi/okx";
 import { useSessionStore } from "@/lib/stores/session";
 
@@ -33,8 +34,10 @@ export function useWalletAuth() {
   const okxConnector =
     connectors.find((c) => c.id === OKX_WALLET_CONNECTOR_ID) ?? okxWalletConnector;
 
-  /** Signed in + wagmi connected — use for UI, not wagmi address alone. */
-  const isSignedIn = !!token && !!wallet && isConnected;
+  /** Wallet linked in OKX (wagmi). */
+  const isWalletConnected = isConnected && !!address;
+  /** Wallet linked + SIWE session. */
+  const isSignedIn = !!token && !!wallet && isWalletConnected;
 
   useEffect(() => {
     if (status === "connecting" || status === "reconnecting") return;
@@ -55,7 +58,7 @@ export function useWalletAuth() {
     }
   }, [token, wallet, address, clearSession, disconnect]);
 
-  const connectWith = useCallback(async () => {
+  const connectWith = useCallback(async (): Promise<`0x${string}`> => {
     if (!okxConnector) {
       throw new Error("OKX Wallet connector is not configured.");
     }
@@ -65,23 +68,13 @@ export function useWalletAuth() {
       );
     }
     reset();
-    const result = await connectAsync({
+    return connectOkxWallet({
+      address,
       connector: okxConnector,
-      chainId: xLayer.id,
+      connectAsync,
+      switchChainAsync,
     });
-    if (result.chainId !== xLayer.id) {
-      try {
-        await switchChainAsync({ chainId: xLayer.id });
-      } catch (err) {
-        if (err instanceof UserRejectedRequestError) {
-          throw new Error(
-            "Wallet connected, but X Layer Testnet was not approved. Switch to X Layer Testnet in OKX and try again."
-          );
-        }
-        throw err;
-      }
-    }
-  }, [connectAsync, okxConnector, reset, switchChainAsync]);
+  }, [address, connectAsync, okxConnector, reset, switchChainAsync]);
 
   const connectWallet = useCallback(async () => {
     await connectWith();
@@ -90,19 +83,16 @@ export function useWalletAuth() {
   const ensureConnected = useCallback(async (): Promise<`0x${string}` | undefined> => {
     if (address) return address;
     if (!okxConnector || !isOkxWalletInstalled()) return undefined;
-    const result = await connectAsync({
+    return connectOkxWallet({
       connector: okxConnector,
-      chainId: xLayer.id,
+      connectAsync,
+      switchChainAsync,
     });
-    if (result.chainId !== xLayer.id) {
-      await switchChainAsync({ chainId: xLayer.id });
-    }
-    return result.accounts[0];
   }, [address, connectAsync, okxConnector, switchChainAsync]);
 
   const signIn = useCallback(async () => {
-    const wallet = address ?? (await ensureConnected());
-    if (!wallet) {
+    const walletAddr = await connectWith();
+    if (!walletAddr) {
       throw new Error(
         "OKX Wallet not ready. Unlock the extension, switch to X Layer Testnet, and try again."
       );
@@ -111,14 +101,14 @@ export function useWalletAuth() {
     const session = useSessionStore.getState();
     if (
       session.wallet &&
-      session.wallet.toLowerCase() !== wallet.toLowerCase()
+      session.wallet.toLowerCase() !== walletAddr.toLowerCase()
     ) {
       clearSession();
     }
 
     const { message } = await apiFetch<{ message: string; nonce: string }>(
       "/api/auth/challenge",
-      { method: "POST", body: JSON.stringify({ wallet }) }
+      { method: "POST", body: JSON.stringify({ wallet: walletAddr }) }
     );
     const signature = await signMessageAsync({ message });
     const result = await apiFetch<{
@@ -131,7 +121,7 @@ export function useWalletAuth() {
       };
     }>("/api/auth/verify", {
       method: "POST",
-      body: JSON.stringify({ wallet, message, signature }),
+      body: JSON.stringify({ wallet: walletAddr, message, signature }),
     });
     setSession({
       token: result.token,
@@ -140,7 +130,7 @@ export function useWalletAuth() {
       role: result.user.role,
     });
     return result;
-  }, [address, clearSession, ensureConnected, signMessageAsync, setSession]);
+  }, [clearSession, connectWith, signMessageAsync, setSession]);
 
   const signOut = useCallback(async () => {
     clearSession();
@@ -152,12 +142,13 @@ export function useWalletAuth() {
     token: string;
     wallet: `0x${string}`;
   }> => {
-    const walletAddr = address ?? (await ensureConnected());
-    if (!walletAddr) {
-      throw new Error("Connect OKX Wallet on X Layer Testnet first.");
-    }
+    const walletAddr = await connectWith();
     if (chainId != null && chainId !== xLayer.id) {
-      await switchChainAsync({ chainId: xLayer.id });
+      try {
+        await switchChainAsync({ chainId: xLayer.id });
+      } catch {
+        // continue — user may switch manually
+      }
     }
 
     const session = useSessionStore.getState();
@@ -179,18 +170,12 @@ export function useWalletAuth() {
       throw new Error("Sign in failed. Approve the message in OKX Wallet.");
     }
     return { token: authToken, wallet: resolvedWallet };
-  }, [
-    address,
-    chainId,
-    clearSession,
-    ensureConnected,
-    signIn,
-    switchChainAsync,
-  ]);
+  }, [chainId, clearSession, connectWith, signIn, switchChainAsync]);
 
   return {
     address,
     isConnected,
+    isWalletConnected,
     isSignedIn,
     chainId,
     token,

@@ -75,6 +75,10 @@ export function parseWalletConnectError(err: unknown): string {
     return "Connection cancelled in your wallet. Click Connect again and approve the request in OKX (check for a popup behind this window).";
   }
 
+  if (/connector already connected/i.test(msg)) {
+    return "Wallet already linked in OKX — finishing sign in…";
+  }
+
   if (/failed to fetch|cannot reach api|networkerror/i.test(msg)) {
     return "Cannot reach the FRX API. Confirm NEXT_PUBLIC_API_URL on Vercel and CORS_ORIGIN on Railway include this site URL.";
   }
