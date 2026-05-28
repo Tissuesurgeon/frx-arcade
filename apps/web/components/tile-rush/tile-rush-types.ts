@@ -1,4 +1,4 @@
-import type { GamePhase } from "@frx/game-engine/logic/types";
+import type { GamePhase } from "@/lib/tile-rush/types";
 
 export type { GamePhase };
 

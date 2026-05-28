@@ -10,11 +10,8 @@ const GameLoading = () => (
   </div>
 );
 
-/** Phaser 3 game — loaded only in the browser (no SSR). */
+/** Optional Phaser 3 client — not used by default; see `TileRushGame.tsx`. */
 export const PhaserTileRush = dynamic(
   () => import("./PhaserTileRushClient"),
   { ssr: false, loading: GameLoading }
 );
-
-/** Primary game client — Phaser 3 canvas with React HUD + end modal. */
-export const TileRushGame = PhaserTileRush;
