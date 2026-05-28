@@ -11,6 +11,12 @@ type GameEndModalProps = {
   onRetry: () => void;
   submitting?: boolean;
   submitComplete?: boolean;
+  guestMode?: boolean;
+  finishedHref?: string;
+  finishedLabel?: string;
+  timeUpMessage?: string;
+  onTryAgain?: () => void;
+  tryAgainLabel?: string;
 };
 
 export function GameEndModal({
@@ -21,6 +27,12 @@ export function GameEndModal({
   onRetry,
   submitting = false,
   submitComplete = false,
+  guestMode = false,
+  finishedHref = "/dashboard",
+  finishedLabel = "Browse other pools",
+  timeUpMessage,
+  onTryAgain,
+  tryAgainLabel = "Try again",
 }: GameEndModalProps) {
   const reduceMotion = useReducedMotion();
   const title =
@@ -33,8 +45,11 @@ export function GameEndModal({
     kind === "cleared"
       ? "You cleared the board. Great run."
       : kind === "timeUp"
-        ? "Five minutes are up — here's how many matches you scored."
+        ? (timeUpMessage ??
+          "Five minutes are up — here's how many matches you scored.")
         : "Tray full — no triple match possible.";
+
+  const retryReady = guestMode ? true : submitComplete;
 
   return (
     <AnimatePresence>
@@ -89,13 +104,17 @@ export function GameEndModal({
             <p className="mt-1 text-center text-xs text-slate-500">
               Score (matches)
             </p>
-            {submitting ? (
+            {submitting && !guestMode ? (
               <p className="mt-4 text-center text-sm text-amber-300">
                 Sign score in wallet…
               </p>
-            ) : canRetry && submitComplete ? (
+            ) : canRetry && retryReady && !guestMode ? (
               <p className="mt-4 text-center text-sm text-emerald-400/90">
                 Score submitted. Ready for your next attempt.
+              </p>
+            ) : canRetry && guestMode ? (
+              <p className="mt-4 text-center text-sm text-emerald-400/90">
+                Ready for your next attempt.
               </p>
             ) : null}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
@@ -103,19 +122,30 @@ export function GameEndModal({
                 <Button
                   variant="primary"
                   className="w-full sm:w-auto"
-                  disabled={submitting || !submitComplete}
+                  disabled={submitting || !retryReady}
                   onClick={onRetry}
                 >
-                  {submitting ? "Submitting…" : "Retry"}
+                  {submitting && !guestMode ? "Submitting…" : "Retry"}
                 </Button>
               ) : (
-                <Button
-                  href="/dashboard"
-                  variant="primary"
-                  className="w-full sm:w-auto"
-                >
-                  Browse other pools
-                </Button>
+                <>
+                  <Button
+                    href={finishedHref}
+                    variant="primary"
+                    className="w-full sm:w-auto"
+                  >
+                    {finishedLabel}
+                  </Button>
+                  {guestMode && onTryAgain ? (
+                    <Button
+                      variant="secondary"
+                      className="w-full sm:w-auto"
+                      onClick={onTryAgain}
+                    >
+                      {tryAgainLabel}
+                    </Button>
+                  ) : null}
+                </>
               )}
             </div>
           </motion.div>

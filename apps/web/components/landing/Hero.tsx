@@ -75,6 +75,9 @@ export function Hero() {
               <Button href="/demo" variant="primary">
                 Start Competing
               </Button>
+              <Button href="/try" variant="secondary">
+                Try free (no wallet)
+              </Button>
               <Button href="#game" variant="secondary">
                 Watch Gameplay
               </Button>

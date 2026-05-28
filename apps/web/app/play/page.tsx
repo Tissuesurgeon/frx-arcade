@@ -263,9 +263,14 @@ function PlayContent() {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
         <p className="text-slate-400">Join a pool from the dashboard to play competitively.</p>
-        <Link href="/dashboard" className="text-cyan-300 underline hover:text-cyan-200">
-          Browse pools
-        </Link>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button href="/try" variant="primary">
+            Try free (no wallet)
+          </Button>
+          <Button href="/dashboard" variant="secondary">
+            Browse pools
+          </Button>
+        </div>
       </div>
     );
   }
@@ -282,9 +287,14 @@ function PlayContent() {
         {!isSignedIn || !token ? (
           <>
             <p className="text-slate-300">Connect and sign in to join this pool.</p>
-            <Button href="/demo" variant="primary">
-              Get started
-            </Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button href="/demo" variant="primary">
+                Get started
+              </Button>
+              <Button href="/try" variant="secondary">
+                Try free (no wallet)
+              </Button>
+            </div>
           </>
         ) : participantLoading || joining ? (
           <p className="text-slate-400">Checking pool entry…</p>

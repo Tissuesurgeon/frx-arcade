@@ -161,7 +161,7 @@ export default function DemoPage() {
             ) : null}
 
             {featured ? (
-              <div className="mt-6">
+              <div className="mt-6 flex flex-wrap gap-3">
                 <Button
                   variant="primary"
                   className="px-6 py-3"
@@ -170,8 +170,17 @@ export default function DemoPage() {
                 >
                   {loading ? "Starting…" : `Join ${featured.title}`}
                 </Button>
+                <Button href="/try" variant="secondary" className="px-6 py-3">
+                  Try free first
+                </Button>
               </div>
-            ) : null}
+            ) : (
+              <div className="mt-6">
+                <Button href="/try" variant="secondary" className="px-6 py-3">
+                  Try free (no wallet)
+                </Button>
+              </div>
+            )}
 
             {error ? (
               <p className="mt-4 rounded-lg border border-red-500/30 bg-red-950/40 px-3 py-2 text-sm text-red-300">

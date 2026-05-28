@@ -37,10 +37,19 @@ export type RunCompletePayload = {
 type TileRushGameProps = {
   sessionKey: number;
   initialAttempt?: number;
+  maxAttempts?: number;
+  roundTimeSeconds?: number;
+  persistLifetimeScore?: boolean;
   onRunComplete?: (payload: RunCompletePayload) => void;
   onRetryRequested?: () => void;
   submitting?: boolean;
   submitComplete?: boolean;
+  guestMode?: boolean;
+  finishedHref?: string;
+  finishedLabel?: string;
+  timeUpMessage?: string;
+  onTryAgain?: () => void;
+  tryAgainLabel?: string;
   rewardPoolCredits?: number;
   playerCount?: number;
   maxPlayers?: number;
@@ -50,10 +59,19 @@ type TileRushGameProps = {
 export function TileRushGame({
   sessionKey,
   initialAttempt = 1,
+  maxAttempts = MAX_ATTEMPTS,
+  roundTimeSeconds = ROUND_TIME_SECONDS,
+  persistLifetimeScore = true,
   onRunComplete,
   onRetryRequested,
   submitting = false,
   submitComplete = false,
+  guestMode = false,
+  finishedHref,
+  finishedLabel,
+  timeUpMessage,
+  onTryAgain,
+  tryAgainLabel,
   rewardPoolCredits,
   playerCount,
   maxPlayers,
@@ -71,7 +89,7 @@ export function TileRushGame({
   const [tray, setTray] = useState<TrayTile[]>([]);
   const [score, setScore] = useState(0);
   const [phase, setPhase] = useState<GamePhase>("playing");
-  const [secondsLeft, setSecondsLeft] = useState(ROUND_TIME_SECONDS);
+  const [secondsLeft, setSecondsLeft] = useState(roundTimeSeconds);
   const [totalScore, setTotalScore] = useState(0);
   const [shufflesLeft, setShufflesLeft] = useState(SHUFFLES_PER_RUN);
   const [shuffleTick, setShuffleTick] = useState(0);
@@ -83,17 +101,19 @@ export function TileRushGame({
   useEffect(() => {
     const attempt = Math.min(
       Math.max(initialAttemptRef.current, 1),
-      MAX_ATTEMPTS
+      maxAttempts
     );
     setCurrentAttempt(attempt);
     setBoardTiles(createInitialBoard(attempt));
     setTray([]);
     setScore(0);
     setPhase("playing");
-    setSecondsLeft(ROUND_TIME_SECONDS);
+    setSecondsLeft(roundTimeSeconds);
     setShufflesLeft(SHUFFLES_PER_RUN);
     setShuffleTick(0);
-    setTotalScore(readTotalScore());
+    if (persistLifetimeScore) {
+      setTotalScore(readTotalScore());
+    }
     finalizedAttemptRef.current = null;
     runStartedAtRef.current = Date.now();
     resolvingTrayRef.current = false;
@@ -102,15 +122,16 @@ export function TileRushGame({
       window.clearTimeout(matchClearTimerRef.current);
       matchClearTimerRef.current = null;
     }
-  }, [sessionKey]);
+  }, [sessionKey, maxAttempts, roundTimeSeconds]);
 
   useEffect(() => {
     finalizedAttemptRef.current = null;
   }, [currentAttempt]);
 
   useEffect(() => {
+    if (!persistLifetimeScore) return;
     setTotalScore(readTotalScore());
-  }, [phase]);
+  }, [phase, persistLifetimeScore]);
 
   useEffect(() => {
     if (phase !== "playing") return;
@@ -138,8 +159,10 @@ export function TileRushGame({
     (runScore: number, endPhase: GamePhase) => {
       if (finalizedAttemptRef.current === currentAttempt) return;
       finalizedAttemptRef.current = currentAttempt;
-      addRunScoreToTotal(runScore);
-      setTotalScore(readTotalScore());
+      if (persistLifetimeScore) {
+        addRunScoreToTotal(runScore);
+        setTotalScore(readTotalScore());
+      }
       onRunComplete?.({
         attemptIndex: currentAttempt,
         matches: runScore,
@@ -147,7 +170,7 @@ export function TileRushGame({
         phase: endPhase,
       });
     },
-    [currentAttempt, onRunComplete]
+    [currentAttempt, onRunComplete, persistLifetimeScore]
   );
 
   useEffect(() => {
@@ -236,12 +259,12 @@ export function TileRushGame({
   }, [boardDisabled, shufflesLeft, boardTiles.length, play]);
 
   const onRetry = useCallback(() => {
-    if (currentAttempt >= MAX_ATTEMPTS) return;
+    if (currentAttempt >= maxAttempts) return;
     onRetryRequested?.();
-  }, [currentAttempt, onRetryRequested]);
+  }, [currentAttempt, maxAttempts, onRetryRequested]);
 
   const modalOpen = phase !== "playing";
-  const canRetry = currentAttempt < MAX_ATTEMPTS;
+  const canRetry = currentAttempt < maxAttempts;
 
   return (
     <>
@@ -253,9 +276,9 @@ export function TileRushGame({
                 <GameHeader
                   score={score}
                   attempt={currentAttempt}
-                  maxAttempts={MAX_ATTEMPTS}
+                  maxAttempts={maxAttempts}
                   secondsRemaining={secondsLeft}
-                  totalScore={totalScore}
+                  totalScore={persistLifetimeScore ? totalScore : undefined}
                   tilesLeft={boardTiles.length}
                   rewardPoolCredits={rewardPoolCredits}
                   playerCount={playerCount}
@@ -304,6 +327,12 @@ export function TileRushGame({
         onRetry={onRetry}
         submitting={submitting}
         submitComplete={submitComplete}
+        guestMode={guestMode}
+        finishedHref={finishedHref}
+        finishedLabel={finishedLabel}
+        timeUpMessage={timeUpMessage}
+        onTryAgain={onTryAgain}
+        tryAgainLabel={tryAgainLabel}
       />
     </>
   );

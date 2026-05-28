@@ -53,9 +53,14 @@ export function GameSection() {
               ))}
             </ul>
 
-            <Button href="/demo" variant="primary" className="mt-8 px-6 py-3">
-              Play Tile Rush
-            </Button>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Button href="/try" variant="primary" className="px-6 py-3">
+                Try free (no wallet)
+              </Button>
+              <Button href="/demo" variant="secondary" className="px-6 py-3">
+                Play for rewards
+              </Button>
+            </div>
           </div>
           <GameMockCard />
         </div>
