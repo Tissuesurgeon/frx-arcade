@@ -23,7 +23,7 @@ export function ActionBar({
 
   if (compact) {
     return (
-      <div className="flex shrink-0 flex-col items-center gap-1 pb-0.5">
+      <div className="flex shrink-0 flex-col items-center gap-0.5 pb-0 sm:gap-1 sm:pb-0.5">
         <motion.button
           type="button"
           disabled={!shuffleActive}
@@ -37,8 +37,8 @@ export function ActionBar({
           }
           className={
             shuffleActive
-              ? "relative flex h-14 w-14 items-center justify-center rounded-2xl border border-violet-500/40 bg-violet-600 text-white hover:bg-violet-500 sm:h-16 sm:w-16"
-              : "relative flex h-14 w-14 cursor-not-allowed items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-500 opacity-60 sm:h-16 sm:w-16"
+              ? "relative flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-400/50 bg-gradient-to-b from-violet-500 to-violet-700 text-white shadow-lg shadow-violet-900/40 sm:h-16 sm:w-16 sm:from-violet-600 sm:to-violet-600 sm:shadow-none"
+              : "relative flex h-12 w-12 cursor-not-allowed items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-slate-500 opacity-60 sm:h-16 sm:w-16"
           }
           whileHover={shuffleActive ? { scale: 1.05 } : undefined}
           whileTap={shuffleActive ? { scale: 0.94 } : undefined}
@@ -54,7 +54,7 @@ export function ActionBar({
             {shufflesLeft}
           </span>
         </motion.button>
-        <p className="text-xs text-slate-500">Shuffle</p>
+        <p className="text-[10px] font-medium text-slate-500 sm:text-xs">Shuffle</p>
       </div>
     );
   }

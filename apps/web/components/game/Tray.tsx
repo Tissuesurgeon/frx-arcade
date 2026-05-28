@@ -19,15 +19,13 @@ type GameTrayProps = {
 /** Fixed column count so tray width never shifts (9 early-game cap). */
 const DISPLAY_SLOTS = TRAY_MAX_EASY;
 
-const SLOT_H = "h-[44px] sm:h-[54px]";
-
 export function Tray({ tray, maxSlots, compact = false }: GameTrayProps) {
   const reduceMotion = useReducedMotion();
   const warnThreshold = Math.max(1, maxSlots - 2);
   const danger = tray.length >= warnThreshold;
 
   const tileClass = compact
-    ? "flex h-full w-full items-center justify-center rounded-lg border border-solid border-b-[2px] font-mono text-[11px] font-bold tabular-nums leading-none sm:text-xs"
+    ? "flex h-full w-full items-center justify-center rounded-md border border-solid border-b-[2px] font-mono text-xs font-bold tabular-nums leading-none sm:rounded-lg sm:text-xs"
     : "flex h-full w-full items-center justify-center rounded-lg border border-solid border-b-[3px] font-mono text-sm font-bold tabular-nums leading-none sm:text-base";
 
   return (
@@ -51,10 +49,10 @@ export function Tray({ tray, maxSlots, compact = false }: GameTrayProps) {
         }
         className={
           compact
-            ? `rounded-xl border px-2 py-2 sm:rounded-2xl sm:px-3 sm:py-2.5 ${
+            ? `rounded-xl px-0 py-0 sm:border sm:px-3 sm:py-2.5 ${
                 danger
-                  ? "border-red-500/45 bg-red-950/20"
-                  : "border-white/10 bg-white/[0.04]"
+                  ? "sm:border-red-500/45 sm:bg-red-950/20"
+                  : "sm:border-white/10 sm:bg-white/[0.04]"
               }`
             : `rounded-2xl border p-3 sm:rounded-3xl sm:p-4 ${
                 danger
@@ -63,20 +61,34 @@ export function Tray({ tray, maxSlots, compact = false }: GameTrayProps) {
               }`
         }
       >
-        <p className="mb-1.5 text-xs font-semibold tabular-nums text-slate-400 sm:mb-2">
+        <p className="mb-1.5 hidden text-xs font-semibold tabular-nums text-slate-400 sm:mb-2 sm:block">
           Tray · {tray.length}/{maxSlots}
+        </p>
+        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:hidden">
+          Collection · {tray.length}/{maxSlots}
         </p>
 
         <div
-          className={`mx-auto grid w-full ${SLOT_H} items-center gap-1 sm:gap-1.5`}
+          className="mx-auto grid h-[48px] w-full items-center gap-1 sm:h-[54px] sm:gap-1.5"
           style={{
             gridTemplateColumns: `repeat(${DISPLAY_SLOTS}, minmax(0, 1fr))`,
             maxWidth: compact ? "100%" : "42rem",
           }}
         >
           <AnimatePresence mode="popLayout" initial={false}>
-            {tray.map((tile, slotIndex) => {
-              if (slotIndex >= maxSlots) return null;
+            {Array.from({ length: maxSlots }, (_, slotIndex) => {
+              const tile = tray[slotIndex];
+              if (!tile) {
+                return (
+                  <div
+                    key={`empty-${slotIndex}`}
+                    className="aspect-[4/5] max-h-full w-full max-w-[56px] place-self-center rounded-md border border-dashed border-white/15 bg-black/25 sm:max-w-[52px] sm:rounded-lg"
+                    style={{ gridColumn: slotIndex + 1, gridRow: 1 }}
+                    aria-hidden
+                  />
+                );
+              }
+
               const paint = tileFacePaint(tile.type);
               return (
                 <motion.div
@@ -91,7 +103,7 @@ export function Tray({ tray, maxSlots, compact = false }: GameTrayProps) {
                       : tileMatchExit
                   }
                   transition={tileLayoutTransition}
-                  className={`${tileClass} aspect-[4/5] max-h-full w-full max-w-[52px] place-self-center sm:max-w-[52px]`}
+                  className={`${tileClass} aspect-[4/5] max-h-full w-full max-w-[56px] place-self-center sm:max-w-[52px]`}
                   style={{
                     gridColumn: slotIndex + 1,
                     gridRow: 1,
@@ -112,11 +124,11 @@ export function Tray({ tray, maxSlots, compact = false }: GameTrayProps) {
           </AnimatePresence>
         </div>
 
-        <div className="mt-1.5 min-h-[18px] sm:mt-2 sm:min-h-[20px]">
+        <div className="mt-1 min-h-[16px] sm:mt-2 sm:min-h-[20px]">
           {danger ? (
-            <p className="flex items-center justify-center gap-1 text-center text-xs font-semibold text-red-400">
+            <p className="flex items-center justify-center gap-1 text-center text-[11px] font-semibold text-red-400 sm:text-xs">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              Careful — tray almost full!
+              Tray almost full!
             </p>
           ) : null}
         </div>
