@@ -1,17 +1,15 @@
 import { buildSlotPositions, getTileDiameterNorm } from "../logic/layout";
+import { MOBILE_TILE_SCALE, TILE_ASPECT } from "./theme";
 
 export type BoardTransform = {
-  rectX: number;
-  rectY: number;
-  rectW: number;
-  rectH: number;
   tileW: number;
   tileH: number;
-  layerOffsetX: number;
-  layerOffsetY: number;
   mapPosition: (xNorm: number, yNorm: number, layer: number) => { x: number; y: number };
 };
 
+/**
+ * Pixel-space board fit — mirrors `computeMobileBoardFit` from the React TileGrid.
+ */
 export function computeBoardTransform(
   rectX: number,
   rectY: number,
@@ -20,14 +18,15 @@ export function computeBoardTransform(
   isMobile: boolean
 ): BoardTransform {
   const slots = buildSlotPositions();
-  const padX = isMobile ? 0.035 : 0.055;
-  const padTop = isMobile ? 0.015 : 0.035;
-  const padBottom = isMobile ? 0.025 : 0.04;
+  const padX = isMobile ? 0.028 : 0.06;
+  const padTop = isMobile ? 0.01 : 0.04;
+  const padBottom = isMobile ? 0.016 : 0.05;
   const availW = 1 - 2 * padX;
   const availH = 1 - padTop - padBottom;
-  const aspect = 0.82;
+  const aspect = TILE_ASPECT;
 
-  let diameter = getTileDiameterNorm() * (isMobile ? 0.86 : 0.92);
+  let diameter =
+    getTileDiameterNorm() * (isMobile ? MOBILE_TILE_SCALE : 0.94);
 
   for (let iter = 0; iter < 14; iter++) {
     const halfW = diameter / 2;
@@ -50,7 +49,7 @@ export function computeBoardTransform(
 
     const fit = Math.min(availW / cw, availH / ch, 1);
     if (fit >= 0.996) break;
-    diameter *= fit * 0.985;
+    diameter *= fit * 0.97;
   }
 
   const halfW = diameter / 2;
@@ -72,8 +71,8 @@ export function computeBoardTransform(
 
   const tileW = diameter * rectW;
   const tileH = (diameter / aspect) * rectH;
-  const layerOffsetX = isMobile ? -2.2 : -3.2;
-  const layerOffsetY = isMobile ? -2.8 : -4;
+  const layerOffsetX = isMobile ? rectW * -0.0012 : -3;
+  const layerOffsetY = isMobile ? rectH * -0.0016 : -4;
 
   const mapPosition = (xNorm: number, yNorm: number, layer: number) => ({
     x:
@@ -88,32 +87,18 @@ export function computeBoardTransform(
       layer * layerOffsetY,
   });
 
-  return {
-    rectX,
-    rectY,
-    rectW,
-    rectH,
-    tileW,
-    tileH,
-    layerOffsetX,
-    layerOffsetY,
-    mapPosition,
-  };
+  return { tileW, tileH, mapPosition };
 }
 
-export function getBoardFrameRect(
+export function getBoardArea(
   width: number,
-  height: number,
-  trayZoneH: number,
-  actionZoneH: number
+  height: number
 ): { x: number; y: number; w: number; h: number } {
-  const margin = Math.max(8, width * 0.02);
-  const top = margin;
-  const bottom = height - trayZoneH - actionZoneH - margin;
+  const margin = width < 640 ? 4 : 10;
   return {
     x: margin,
-    y: top,
+    y: margin,
     w: width - margin * 2,
-    h: Math.max(100, bottom - top),
+    h: height - margin * 2,
   };
 }

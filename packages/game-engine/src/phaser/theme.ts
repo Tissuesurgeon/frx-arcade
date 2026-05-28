@@ -1,25 +1,15 @@
-/** Visual theme — dark glass + neon accents (modern mobile tile-match). */
+/** Visual theme aligned with FRX web app (indigo / slate, not casino felt). */
 export const THEME = {
-  bgTop: 0x07050f,
-  bgMid: 0x12101f,
-  bgBottom: 0x1a1530,
-  feltOuter: 0x0d2818,
-  feltInner: 0x14532d,
-  feltHighlight: 0x166534,
-  frameGold: 0xd4a853,
-  frameGoldDim: 0x8b6914,
-  glass: 0x1e1b4b,
-  glassLight: 0x312e81,
-  glassBorder: 0x6366f1,
+  bgTop: 0x0b0a14,
+  bgBottom: 0x12101f,
+  stageMobileTop: 0x1e4d3a,
+  stageMobileBottom: 0x1a3d2e,
+  stageDesktop: 0x0f0d18,
+  stageBorder: 0xffffff,
+  stageBorderAlpha: 0.1,
   accent: 0x22d3ee,
   accentGlow: 0x67e8f9,
-  accentWarm: 0xfbbf24,
-  danger: 0xf87171,
   text: 0xf8fafc,
-  textMuted: 0x94a3b8,
-  trayBg: 0x0c1222,
-  traySlot: 0x151c2e,
-  traySlotBorder: 0x334155,
   shadow: 0x000000,
 } as const;
 
@@ -30,5 +20,5 @@ export const FONT = {
 
 export const MOBILE_BREAK = 640;
 export const TILE_ASPECT = 0.82;
-export const LAYER_OFFSET_X = -3;
-export const LAYER_OFFSET_Y = -4;
+/** Match apps/web MOBILE_TILE_VISUAL_SCALE */
+export const MOBILE_TILE_SCALE = 0.9;

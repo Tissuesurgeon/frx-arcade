@@ -37,6 +37,7 @@ export function hslToHex(h: number, s: number, l: number): number {
 }
 
 export type PhaserTileColors = {
+  fillTop: number;
   fill: number;
   stroke: number;
   text: number;
@@ -46,7 +47,8 @@ export function phaserTileColors(type: number): PhaserTileColors {
   const key = tileMatchKey(type);
   const h = (key * 360) / TILE_FACE_COUNT;
   return {
-    fill: hslToHex(h, 75, 82),
+    fillTop: hslToHex(h, 82, 91),
+    fill: hslToHex(h, 68, 76),
     stroke: hslToHex(h, 55, 42),
     text: hslToHex(h, 42, 16),
   };

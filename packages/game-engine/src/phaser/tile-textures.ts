@@ -4,21 +4,21 @@ import { phaserTileColors } from "../logic/phaser-colors";
 import { tileLabel, tileMatchKey } from "../logic/tile-styles";
 import { FONT, THEME } from "./theme";
 
-const TEXTURE_PREFIX = "frx-tile";
+const TEXTURE_PREFIX = "frx-tile-v2";
 
 export function tileTextureKey(faceKey: number, w: number, h: number): string {
   return `${TEXTURE_PREFIX}-${faceKey}-${Math.round(w)}x${Math.round(h)}`;
 }
 
-/** Procedural mahjong-style tile textures (cached per face + size). */
+/** Pastel gradient tiles — matches React `tileFacePaint` styling. */
 export function ensureTileTextures(
   scene: Phaser.Scene,
   tileW: number,
   tileH: number
 ): void {
-  const w = Math.max(24, Math.round(tileW));
-  const h = Math.max(28, Math.round(tileH));
-  const radius = Math.min(8, w * 0.18);
+  const w = Math.max(28, Math.round(tileW));
+  const h = Math.max(34, Math.round(tileH));
+  const radius = Math.min(10, w * 0.2);
 
   for (let face = 0; face < TILE_FACE_COUNT; face++) {
     const key = tileTextureKey(face, w, h);
@@ -28,36 +28,34 @@ export function ensureTileTextures(
     g.setVisible(false);
     const colors = phaserTileColors(face);
 
-    // Drop shadow
-    g.fillStyle(THEME.shadow, 0.45);
-    g.fillRoundedRect(4, 5, w, h, radius);
+    // Drop shadow (matches React box-shadow)
+    g.fillStyle(THEME.shadow, 0.35);
+    g.fillRoundedRect(3, 5, w, h, radius);
 
-    // Side depth (3D stack lip)
-    g.fillStyle(0xcbd5e1, 1);
-    g.fillRoundedRect(2, 2, w, h, radius);
+    // Bottom edge (3D lip)
+    g.fillStyle(colors.stroke, 0.85);
+    g.fillRoundedRect(0, h - 4, w, 4, { bl: radius, br: radius, tl: 0, tr: 0 });
 
-    // Main ivory body
-    g.fillStyle(0xf8fafc, 1);
-    g.fillRoundedRect(0, 0, w - 2, h - 2, radius);
+    // Body gradient: light top → mid bottom
+    g.fillStyle(colors.fill, 1);
+    g.fillGradientStyle(
+      colors.fillTop,
+      colors.fillTop,
+      colors.fill,
+      colors.fill,
+      1
+    );
+    g.fillRoundedRect(0, 0, w, h - 3, radius);
 
-    // Inner tint wash
-    g.fillStyle(colors.fill, 0.22);
-    g.fillRoundedRect(3, 3, w - 8, h - 8, radius - 2);
+    // Border
+    g.lineStyle(1.5, colors.stroke, 0.55);
+    g.strokeRoundedRect(0.5, 0.5, w - 1, h - 4, radius);
 
     // Top gloss
-    g.fillStyle(0xffffff, 0.35);
-    g.fillRoundedRect(4, 4, w - 12, h * 0.22, radius - 2);
+    g.fillStyle(0xffffff, 0.28);
+    g.fillRoundedRect(3, 3, w - 6, h * 0.22, radius - 2);
 
-    // Symbol disk
-    const cx = (w - 2) / 2;
-    const cy = (h - 2) / 2;
-    const diskR = Math.min(w, h) * 0.28;
-    g.fillStyle(colors.fill, 1);
-    g.fillCircle(cx, cy, diskR);
-    g.lineStyle(2, colors.stroke, 0.85);
-    g.strokeCircle(cx, cy, diskR);
-
-    g.generateTexture(key, w + 6, h + 8);
+    g.generateTexture(key, w + 4, h + 8);
     g.destroy();
   }
 }
@@ -77,29 +75,20 @@ export function addTileSprite(
   const img = scene.add.image(0, 0, key);
   img.setOrigin(0.5, 0.5);
 
-  const label = scene.add.text(0, 1, tileLabel(type), {
-    fontFamily: FONT.family,
-    fontSize: `${Math.max(11, Math.floor(tileW * 0.34))}px`,
-    color: "#ffffff",
+  const colors = phaserTileColors(type);
+  const label = scene.add.text(0, 0, tileLabel(type), {
+    fontFamily: FONT.mono,
+    fontSize: `${Math.max(12, Math.floor(tileW * 0.36))}px`,
+    color: `#${(colors.text & 0xffffff).toString(16).padStart(6, "0")}`,
     fontStyle: "bold",
-    stroke: "#00000033",
-    strokeThickness: 2,
   });
   label.setOrigin(0.5, 0.5);
 
   container.add([img, label]);
-
-  if (selectable) {
-    const glow = scene.add.rectangle(0, 0, tileW + 8, tileH + 8, THEME.accentGlow, 0);
-    glow.setStrokeStyle(2, THEME.accentGlow, 0);
-    container.addAt(glow, 0);
-    container.setData("glow", glow);
-  }
-
   container.setData("selectable", selectable);
   container.setAlpha(selectable ? 1 : 0.42);
   if (!selectable) {
-    container.setScale(0.96);
+    container.setScale(0.97);
   }
 
   return container;
@@ -109,9 +98,7 @@ export function setTileHighlight(
   container: Phaser.GameObjects.Container,
   active: boolean
 ): void {
-  const glow = container.getData("glow") as Phaser.GameObjects.Rectangle | undefined;
-  if (!glow) return;
-  glow.setFillStyle(THEME.accentGlow, active ? 0.12 : 0);
-  glow.setStrokeStyle(2, THEME.accentGlow, active ? 0.85 : 0);
-  container.setScale(active ? 1.06 : 1);
+  if (!(container.getData("selectable") as boolean)) return;
+  container.setScale(active ? 1.08 : 1);
+  container.setAlpha(active ? 1 : 1);
 }

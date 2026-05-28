@@ -18,22 +18,14 @@ import type { GamePhase, Tile, TrayTile } from "./logic/types";
 import { phaserTileColors } from "./logic/phaser-colors";
 import {
   computeBoardTransform,
-  getBoardFrameRect,
+  getBoardArea,
   type BoardTransform,
 } from "./phaser/board-layout";
-import {
-  createShuffleButton,
-  drawBackground,
-  drawBoardFrame,
-  drawTrayDock,
-  drawTraySlot,
-  updateShuffleButton,
-} from "./phaser/chrome";
+import { drawBackground, drawBoardStage } from "./phaser/chrome";
 import {
   burstMatchParticles,
   ensureParticleTexture,
   floatScoreText,
-  popInTrayTile,
   pulseCamera,
   tweenPickTile,
 } from "./phaser/effects";
@@ -62,6 +54,7 @@ export type TileRushCallbacks = {
   onAttemptChange?: (attempt: number) => void;
   onTimeTick?: (secondsLeft: number) => void;
   onTilesLeftChange?: (count: number) => void;
+  onTrayChange?: (tray: TrayTile[]) => void;
   onShufflesLeftChange?: (count: number) => void;
   onEvent?: (event: GameEvent) => void;
   onSound?: (
@@ -73,9 +66,6 @@ type SceneData = {
   callbacks: TileRushCallbacks;
   config: TileRushGameConfig;
 };
-
-const TRAY_ZONE_H = 88;
-const ACTION_ZONE_H = 58;
 
 export class TileRushScene extends Phaser.Scene {
   private boardTiles: Tile[] = [];
@@ -89,10 +79,8 @@ export class TileRushScene extends Phaser.Scene {
   private shufflesLeft = SHUFFLES_PER_RUN;
   private callbacks: TileRushCallbacks = {};
   private tileSprites = new Map<string, Phaser.GameObjects.Container>();
-  private trayLayer!: Phaser.GameObjects.Container;
   private chromeLayer!: Phaser.GameObjects.Container;
   private boardLayer!: Phaser.GameObjects.Container;
-  private shuffleBtn!: Phaser.GameObjects.Container;
   private boardTransform!: BoardTransform;
   private timerEvent?: Phaser.Time.TimerEvent;
   private resolvingTray = false;
@@ -117,15 +105,10 @@ export class TileRushScene extends Phaser.Scene {
 
   create() {
     ensureParticleTexture(this);
-
     this.chromeLayer = this.add.container(0, 0);
     this.boardLayer = this.add.container(0, 0);
-    this.trayLayer = this.add.container(0, 0);
-
-    this.buildShuffleButton();
     this.layoutChrome();
     this.renderBoard(true);
-    this.renderTray();
 
     this.timerEvent = this.time.addEvent({
       delay: 1000,
@@ -136,13 +119,15 @@ export class TileRushScene extends Phaser.Scene {
     this.scale.on("resize", () => {
       this.layoutChrome();
       this.renderBoard(true);
-      this.renderTray();
-      this.positionShuffleButton();
     });
   }
 
   private isMobile(): boolean {
     return this.scale.width < MOBILE_BREAK;
+  }
+
+  private emitTray() {
+    this.callbacks.onTrayChange?.([...this.tray]);
   }
 
   private resetRun(attempt: number) {
@@ -161,6 +146,7 @@ export class TileRushScene extends Phaser.Scene {
     this.callbacks.onTimeTick?.(this.secondsLeft);
     this.callbacks.onTilesLeftChange?.(this.boardTiles.length);
     this.callbacks.onShufflesLeftChange?.(this.shufflesLeft);
+    this.emitTray();
   }
 
   reloadSession(attempt: number) {
@@ -169,8 +155,36 @@ export class TileRushScene extends Phaser.Scene {
     this.inputLocked = false;
     this.resetRun(attempt);
     this.renderBoard(true);
-    this.renderTray();
-    this.updateShuffleBtn();
+  }
+
+  shuffleBoard() {
+    if (
+      this.phase !== "playing" ||
+      this.resolvingTray ||
+      this.inputLocked ||
+      this.shufflesLeft <= 0 ||
+      this.boardTiles.length === 0
+    ) {
+      return;
+    }
+
+    this.boardTiles = shuffleBoardTileTypes(this.boardTiles);
+    this.shufflesLeft -= 1;
+    this.callbacks.onSound?.("shuffle");
+    this.callbacks.onShufflesLeftChange?.(this.shufflesLeft);
+    this.emitEvent("shuffle", { remaining: this.shufflesLeft });
+
+    for (const [, spr] of this.tileSprites) {
+      this.tweens.add({
+        targets: spr,
+        angle: Phaser.Math.Between(-6, 6),
+        duration: 100,
+        yoyo: true,
+        ease: "Sine.easeInOut",
+      });
+    }
+
+    this.time.delayedCall(120, () => this.renderBoard(false));
   }
 
   private layoutChrome() {
@@ -178,45 +192,25 @@ export class TileRushScene extends Phaser.Scene {
     this.chromeLayer.removeAll(true);
 
     const bg = drawBackground(this, width, height);
-    const frame = getBoardFrameRect(width, height, TRAY_ZONE_H, ACTION_ZONE_H);
-    const boardFrame = drawBoardFrame(this, frame.x, frame.y, frame.w, frame.h);
-
-    this.boardTransform = computeBoardTransform(
-      frame.x,
-      frame.y,
-      frame.w,
-      frame.h,
+    const area = getBoardArea(width, height);
+    const stage = drawBoardStage(
+      this,
+      area.x,
+      area.y,
+      area.w,
+      area.h,
       this.isMobile()
     );
 
-    const dockW = Math.min(width - 24, 520);
-    const dockX = (width - dockW) / 2;
-    const dockY = height - TRAY_ZONE_H - ACTION_ZONE_H + 6;
-    const trayDock = drawTrayDock(this, dockX, dockY, dockW, TRAY_ZONE_H - 8);
+    this.boardTransform = computeBoardTransform(
+      area.x + (this.isMobile() ? 4 : 8),
+      area.y + (this.isMobile() ? 4 : 8),
+      area.w - (this.isMobile() ? 8 : 16),
+      area.h - (this.isMobile() ? 8 : 16),
+      this.isMobile()
+    );
 
-    this.chromeLayer.add([bg, boardFrame, trayDock]);
-  }
-
-  private buildShuffleButton() {
-    this.shuffleBtn = createShuffleButton(this, 0, 0, () => this.shuffleBoard());
-    this.positionShuffleButton();
-  }
-
-  private positionShuffleButton() {
-    const x = this.scale.width - 78;
-    const y = this.scale.height - ACTION_ZONE_H / 2 - 6;
-    this.shuffleBtn.setPosition(x, y);
-    this.updateShuffleBtn();
-  }
-
-  private updateShuffleBtn() {
-    const enabled =
-      this.phase === "playing" &&
-      !this.resolvingTray &&
-      !this.inputLocked &&
-      this.shufflesLeft > 0 &&
-      this.boardTiles.length > 0;
-    updateShuffleButton(this.shuffleBtn, this.shufflesLeft, enabled);
+    this.chromeLayer.add([bg, stage]);
   }
 
   private tickTimer() {
@@ -265,7 +259,7 @@ export class TileRushScene extends Phaser.Scene {
           container.setPosition(pos.x, pos.y);
           container.setDepth(100 + tile.zIndex);
           container.setAlpha(isSelectable ? 1 : 0.42);
-          container.setScale(isSelectable ? 1 : 0.96);
+          container.setScale(isSelectable ? 1 : 0.97);
         }
       }
 
@@ -287,47 +281,15 @@ export class TileRushScene extends Phaser.Scene {
         this.tileSprites.set(tile.id, container);
 
         if (!instant) {
-          container.setScale(0.5);
+          container.setScale(0.6);
           container.setAlpha(0);
           this.tweens.add({
             targets: container,
-            scale: isSelectable ? 1 : 0.96,
+            scale: isSelectable ? 1 : 0.97,
             alpha: isSelectable ? 1 : 0.42,
-            duration: 280,
+            duration: 220,
             ease: "Back.easeOut",
           });
-        }
-      }
-    }
-  }
-
-  private getTrayLayout() {
-    const cap = getTrayMax(this.score);
-    const slotSize = Math.min(44, this.scale.width * 0.1);
-    const gap = 7;
-    const totalW = cap * slotSize + (cap - 1) * gap;
-    const y = this.scale.height - TRAY_ZONE_H / 2 - ACTION_ZONE_H + 10;
-    const startX = this.scale.width / 2 - totalW / 2 + slotSize / 2;
-    return { cap, slotSize, gap, totalW, y, startX };
-  }
-
-  private renderTray(animateNew = false) {
-    this.trayLayer.removeAll(true);
-    const { cap, slotSize, y, startX, gap } = this.getTrayLayout();
-
-    for (let i = 0; i < cap; i++) {
-      const x = startX + i * (slotSize + gap);
-      const slot = drawTraySlot(this, x, y, slotSize);
-      this.trayLayer.add(slot);
-
-      const tt = this.tray[i];
-      if (tt) {
-        const tile = addTileSprite(this, tt.type, slotSize - 4, (slotSize - 4) / 0.82, true);
-        tile.setPosition(x, y);
-        tile.setDepth(5100 + i);
-        this.trayLayer.add(tile);
-        if (animateNew && i === this.tray.length - 1) {
-          popInTrayTile(tile, 0);
         }
       }
     }
@@ -366,8 +328,7 @@ export class TileRushScene extends Phaser.Scene {
         this.score = newScore;
         this.callbacks.onScoreChange?.(this.score);
         this.tray = finalTray;
-        this.renderTray();
-        this.updateShuffleBtn();
+        this.emitTray();
         this.inputLocked = false;
 
         const capAfter = getTrayMax(this.score);
@@ -387,13 +348,12 @@ export class TileRushScene extends Phaser.Scene {
         const bounds = sprite?.getBounds();
         const cx = bounds?.centerX ?? this.scale.width / 2;
         const cy = bounds?.centerY ?? this.scale.height / 2;
-        const faceColor = phaserTileColors(tile.type).fill;
-        burstMatchParticles(this, cx, cy, faceColor);
-        floatScoreText(this, cx, cy - 20, resolved.matches);
+        burstMatchParticles(this, cx, cy, phaserTileColors(tile.type).fill);
+        floatScoreText(this, cx, cy - 16, resolved.matches);
 
         this.resolvingTray = true;
         this.tray = trayWithNew;
-        this.renderTray(true);
+        this.emitTray();
         this.matchClearTimer?.remove();
         this.matchClearTimer = this.time.delayedCall(MATCH_CLEAR_MS, () => {
           this.matchClearTimer = undefined;
@@ -404,7 +364,7 @@ export class TileRushScene extends Phaser.Scene {
       }
 
       this.tray = finalTray;
-      this.renderTray(true);
+      this.emitTray();
       completeTurn();
     };
 
@@ -421,39 +381,6 @@ export class TileRushScene extends Phaser.Scene {
     }
   }
 
-  shuffleBoard() {
-    if (
-      this.phase !== "playing" ||
-      this.resolvingTray ||
-      this.inputLocked ||
-      this.shufflesLeft <= 0 ||
-      this.boardTiles.length === 0
-    ) {
-      return;
-    }
-
-    this.boardTiles = shuffleBoardTileTypes(this.boardTiles);
-    this.shufflesLeft -= 1;
-    this.callbacks.onSound?.("shuffle");
-    this.callbacks.onShufflesLeftChange?.(this.shufflesLeft);
-    this.emitEvent("shuffle", { remaining: this.shufflesLeft });
-
-    for (const [, spr] of this.tileSprites) {
-      this.tweens.add({
-        targets: spr,
-        angle: Phaser.Math.Between(-8, 8),
-        duration: 120,
-        yoyo: true,
-        ease: "Sine.easeInOut",
-      });
-    }
-
-    this.time.delayedCall(140, () => {
-      this.renderBoard(false);
-      this.updateShuffleBtn();
-    });
-  }
-
   getState() {
     return {
       score: this.score,
@@ -463,6 +390,7 @@ export class TileRushScene extends Phaser.Scene {
       shufflesLeft: this.shufflesLeft,
       tilesLeft: this.boardTiles.length,
       maxAttempts: this.maxAttempts,
+      tray: [...this.tray],
     };
   }
 
@@ -475,7 +403,6 @@ export class TileRushScene extends Phaser.Scene {
     else if (phase === "gameOver") this.callbacks.onSound?.("gameOver");
     else if (phase === "timeUp") this.callbacks.onSound?.("timeUp");
     this.emitEvent("run_end", { phase, score: this.score, attempt: this.currentAttempt });
-    this.updateShuffleBtn();
   }
 
   private emitEvent(type: GameEvent["type"], data: Record<string, unknown>) {
@@ -493,6 +420,7 @@ export type TileRushGameHandle = {
   game: Phaser.Game;
   scene: TileRushScene;
   reloadSession: (attempt: number) => void;
+  shuffleBoard: () => void;
   destroy: () => void;
 };
 
@@ -506,7 +434,7 @@ export function createTileRushGame(
     parent,
     width: parent.clientWidth || 800,
     height: parent.clientHeight || 600,
-    backgroundColor: "#07050f",
+    backgroundColor: "#0b0a14",
     scale: {
       mode: Phaser.Scale.RESIZE,
       autoCenter: Phaser.Scale.CENTER_BOTH,
@@ -529,6 +457,7 @@ export function createTileRushGame(
     game,
     scene,
     reloadSession: (attempt: number) => scene.reloadSession(attempt),
+    shuffleBoard: () => scene.shuffleBoard(),
     destroy: () => {
       game.destroy(true);
     },
