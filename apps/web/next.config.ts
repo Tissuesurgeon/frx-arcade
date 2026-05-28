@@ -11,6 +11,8 @@ const usePolling = process.env.WATCHPACK_POLLING === "true";
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   transpilePackages: ["@frx/shared", "@frx/game-engine"],
+  /** Never bundle Phaser on the server — it requires `window`. */
+  serverExternalPackages: ["phaser"],
   devIndicators: false,
   eslint: {
     // eslint-config-next resolves `next` from repo root on Vercel; skip during build

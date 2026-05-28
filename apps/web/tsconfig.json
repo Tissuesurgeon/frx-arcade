@@ -31,6 +31,15 @@
       ],
       "@frx/game-engine": [
         "../../packages/game-engine/src/index.ts"
+      ],
+      "@frx/game-engine/phaser": [
+        "../../packages/game-engine/src/phaser.ts"
+      ],
+      "@frx/game-engine/logic": [
+        "../../packages/game-engine/src/logic/index.ts"
+      ],
+      "@frx/game-engine/logic/*": [
+        "../../packages/game-engine/src/logic/*"
       ]
     }
   },

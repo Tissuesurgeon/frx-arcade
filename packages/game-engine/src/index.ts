@@ -1,13 +1,2 @@
-export * from "./logic/constants";
-export * from "./logic/types";
-export * from "./logic/board";
-export * from "./logic/layout";
-export * from "./logic/tile-styles";
-export {
-  createTileRushGame,
-  type TileRushGameHandle,
-  type TileRushCallbacks,
-  type TileRushGameConfig,
-  type GameEvent,
-  TileRushScene,
-} from "./createTileRushGame";
+/** Logic-only entry — safe for SSR. Phaser client: `@frx/game-engine/phaser`. */
+export * from "./logic/index";
