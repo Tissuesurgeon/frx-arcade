@@ -33,17 +33,17 @@ export function GameLayout({ header, center, bottom }: GameLayoutProps) {
         }}
       />
 
-      <header className="relative z-[2] shrink-0 px-2 pt-2 sm:px-4 sm:pt-3 lg:px-5">
+      <header className="relative z-[2] shrink-0 px-1.5 pt-1.5 sm:px-4 sm:pt-3 lg:px-5">
         {header}
       </header>
 
-      <main className="relative z-[1] min-h-0 px-2 py-1 sm:px-4 sm:py-2 lg:px-5">
-        <div className="@container/board flex h-full min-h-0 min-w-0 items-center justify-center overflow-hidden [container-type:size]">
+      <main className="relative z-[1] min-h-0 overflow-y-auto overscroll-y-contain px-1 py-0.5 sm:overflow-hidden sm:px-4 sm:py-2 lg:px-5">
+        <div className="@container/board flex h-full min-h-0 min-w-0 items-start justify-center sm:items-center [container-type:size]">
           {center}
         </div>
       </main>
 
-      <footer className="relative z-[2] shrink-0 border-t border-white/10 bg-frx-bg/80 px-2 py-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-3 lg:px-5">
+      <footer className="relative z-[2] shrink-0 border-t border-white/10 bg-frx-bg/80 px-1.5 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-4 sm:py-3 lg:px-5">
         {bottom}
       </footer>
     </div>

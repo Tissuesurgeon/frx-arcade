@@ -14,7 +14,8 @@ export const gameTileFaceClass = `
   flex min-h-0 min-w-0 items-center justify-center
   rounded-lg sm:rounded-xl
   border border-solid border-b-[3px] box-border
-  font-mono text-[clamp(0.6rem,calc(2.6vmin+0.35rem),1.3rem)] font-bold tabular-nums leading-none tracking-tight
+  font-mono text-sm font-bold tabular-nums leading-none tracking-tight
+  sm:text-[clamp(0.6rem,calc(2.6vmin+0.35rem),1.3rem)]
   touch-manipulation select-none
 `;
 
@@ -25,9 +26,10 @@ type TileProps = {
   selectable: boolean;
   disabled: boolean;
   onTap: () => void;
+  enlargedTouch?: boolean;
 };
 
-export function Tile({ tile, selectable, disabled, onTap }: TileProps) {
+export function Tile({ tile, selectable, disabled, onTap, enlargedTouch = false }: TileProps) {
   const reduceMotion = useReducedMotion();
   const label = tileLabel(tile.type);
   const paint = tileFacePaint(tile.type);
@@ -47,7 +49,7 @@ export function Tile({ tile, selectable, disabled, onTap }: TileProps) {
       onClick={() => interactive && onTap()}
       className={`${tileFaceClass} ${
         interactive ? "cursor-pointer" : "cursor-default opacity-[0.5]"
-      }`}
+      } ${enlargedTouch && interactive ? "before:absolute before:-inset-1 before:content-['']" : ""}`}
       style={{
         left: `${tile.xNorm * 100}%`,
         top: `${tile.yNorm * 100}%`,

@@ -60,7 +60,7 @@ export default function TryPage() {
 
   if (!runActive && allAttemptsUsed) {
     return (
-      <GameShell fixedViewport>
+      <GameShell fixedViewport minimalHeader>
         <div className="flex h-full min-h-0 flex-col items-center justify-center gap-4 p-8 text-center">
           <p className="text-lg font-semibold text-white">Practice session complete</p>
           <p className="text-sm text-slate-400">
@@ -84,7 +84,7 @@ export default function TryPage() {
 
   if (!runActive) {
     return (
-      <GameShell fixedViewport>
+      <GameShell fixedViewport minimalHeader>
         <div className="flex h-full min-h-0 flex-col">
           <div className="pointer-events-auto shrink-0 border-b border-white/5 bg-black/20 px-3 py-1.5 text-center text-xs text-slate-300">
             <span className="font-semibold text-violet-300">Free try</span>

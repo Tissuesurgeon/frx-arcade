@@ -19,7 +19,7 @@ type GameTrayProps = {
 /** Fixed column count so tray width never shifts (9 early-game cap). */
 const DISPLAY_SLOTS = TRAY_MAX_EASY;
 
-const SLOT_H = "h-[50px] sm:h-[54px]";
+const SLOT_H = "h-[44px] sm:h-[54px]";
 
 export function Tray({ tray, maxSlots, compact = false }: GameTrayProps) {
   const reduceMotion = useReducedMotion();
@@ -91,7 +91,7 @@ export function Tray({ tray, maxSlots, compact = false }: GameTrayProps) {
                       : tileMatchExit
                   }
                   transition={tileLayoutTransition}
-                  className={`${tileClass} aspect-[4/5] max-h-full w-full max-w-[48px] place-self-center sm:max-w-[52px]`}
+                  className={`${tileClass} aspect-[4/5] max-h-full w-full max-w-[52px] place-self-center sm:max-w-[52px]`}
                   style={{
                     gridColumn: slotIndex + 1,
                     gridRow: 1,

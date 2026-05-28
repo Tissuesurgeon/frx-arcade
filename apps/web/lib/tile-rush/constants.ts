@@ -35,5 +35,11 @@ export const GUEST_ROUND_TIME_SECONDS = 2 * 60;
 /** Power-up: reshuffle types on the board; limited per run. */
 export const SHUFFLES_PER_RUN = 2;
 
+/** Enlarges tile faces on small screens (layout positions unchanged). */
+export const MOBILE_TILE_VISUAL_SCALE = 1.85;
+
+/** Minimum tile tap target in CSS pixels on mobile. */
+export const MOBILE_TILE_MIN_PX = 44;
+
 /** Sum of match counts from every completed run (persisted in this browser). */
 export const STORAGE_TOTAL_SCORE = "frx-tile-rush-total-score";

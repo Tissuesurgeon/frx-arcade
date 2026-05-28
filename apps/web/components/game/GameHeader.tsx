@@ -70,20 +70,20 @@ export function GameHeader({
   const showPlayers = playerCount !== undefined;
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 sm:px-4 sm:py-2.5">
-      <div className="flex items-center gap-2 sm:gap-3">
+    <div className="rounded-xl border border-white/10 bg-white/[0.04] px-2.5 py-1.5 sm:px-4 sm:py-2.5">
+      <div className="flex items-center gap-1.5 sm:gap-3">
         <div className="min-w-0 shrink-0">
-          <p className="text-xs text-slate-400">Attempt</p>
-          <p className="text-sm font-bold tabular-nums text-white">
+          <p className="text-[10px] text-slate-400 sm:text-xs">Attempt</p>
+          <p className="text-xs font-bold tabular-nums text-white sm:text-sm">
             {attempt}/{maxAttempts}
           </p>
         </div>
 
         <div className="flex min-w-0 flex-1 flex-col items-center">
-          <p className="text-xs text-slate-400">Matches</p>
+          <p className="text-[10px] text-slate-400 sm:text-xs">Matches</p>
           <motion.p
             key={score}
-            className="text-2xl font-bold tabular-nums leading-none text-white sm:text-3xl"
+            className="text-xl font-bold tabular-nums leading-none text-white sm:text-3xl"
             initial={reduceMotion ? false : { scale: 1.06 }}
             animate={{ scale: 1 }}
             transition={
@@ -109,6 +109,15 @@ export function GameHeader({
           </span>
         </div>
 
+        {tilesLeft !== undefined ? (
+          <div className="shrink-0 text-right sm:hidden">
+            <p className="text-[10px] text-slate-400">Left</p>
+            <p className="text-xs font-bold tabular-nums text-violet-300">
+              {tilesLeft}
+            </p>
+          </div>
+        ) : null}
+
         {onToggleSound ? (
           <button
             type="button"
@@ -129,7 +138,7 @@ export function GameHeader({
         tilesLeft !== undefined ||
         showPool ||
         showPlayers) && (
-        <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5 sm:gap-2">
+        <div className="mt-1.5 hidden flex-wrap items-center justify-center gap-1.5 sm:mt-2 sm:flex sm:gap-2">
           {totalScore !== undefined ? (
             <StatChip icon={Trophy} iconClass="text-amber-400">
               {totalScore.toLocaleString()} total

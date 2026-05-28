@@ -459,7 +459,7 @@ function PlayContent() {
 
 export default function PlayPage() {
   return (
-    <GameShell fixedViewport>
+    <GameShell fixedViewport minimalHeader>
       <div className="flex h-full min-h-0 flex-col">
         <Suspense
           fallback={

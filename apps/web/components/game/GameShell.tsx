@@ -16,9 +16,15 @@ type GameShellProps = {
   children: React.ReactNode;
   /** Play screen: fill viewport, no page scroll. */
   fixedViewport?: boolean;
+  /** Play / try: logo + wallet only on small screens. */
+  minimalHeader?: boolean;
 };
 
-export function GameShell({ children, fixedViewport = false }: GameShellProps) {
+export function GameShell({
+  children,
+  fixedViewport = false,
+  minimalHeader = false,
+}: GameShellProps) {
   const role = useSessionStore((s) => s.role);
 
   return (
@@ -36,7 +42,11 @@ export function GameShell({ children, fixedViewport = false }: GameShellProps) {
             "0 1px 0 rgba(99, 102, 241, 0.2), 0 8px 32px -12px rgba(99, 102, 241, 0.15)",
         }}
       >
-        <Container className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 py-2 sm:gap-x-4 sm:py-3">
+        <Container
+          className={`flex flex-wrap items-center justify-between gap-x-3 gap-y-2 sm:gap-x-4 sm:py-3 ${
+            minimalHeader ? "py-1.5 sm:py-3" : "py-2 sm:py-3"
+          }`}
+        >
           <Link
             href="/"
             className="flex shrink-0 items-center gap-2 font-bold tracking-tight"
@@ -50,7 +60,11 @@ export function GameShell({ children, fixedViewport = false }: GameShellProps) {
             </span>
           </Link>
 
-          <nav className="order-3 flex w-full flex-wrap items-center justify-center gap-4 text-xs sm:order-none sm:w-auto sm:gap-6 sm:text-sm">
+          <nav
+            className={`order-3 flex w-full flex-wrap items-center justify-center gap-4 text-xs sm:order-none sm:w-auto sm:gap-6 sm:text-sm ${
+              minimalHeader ? "hidden sm:flex" : ""
+            }`}
+          >
             <Link href="/demo" className="flex items-center gap-1.5 text-slate-300 hover:text-cyan-300">
               <LayoutDashboard className="h-4 w-4 text-indigo-400" />
               Get Started
