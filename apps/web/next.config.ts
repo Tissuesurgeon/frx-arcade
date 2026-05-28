@@ -39,8 +39,8 @@ const nextConfig: NextConfig = {
     config.resolve.alias = {
       ...config.resolve.alias,
       "pino-pretty": false,
-      // MetaMask SDK optional React Native peer — not used in web builds
       "@react-native-async-storage/async-storage": false,
+      phaser: path.join(__dirname, "../../node_modules/phaser/dist/phaser.js"),
     };
     return config;
   },

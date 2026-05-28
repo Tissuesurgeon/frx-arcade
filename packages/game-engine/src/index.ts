@@ -3,4 +3,11 @@ export * from "./logic/types";
 export * from "./logic/board";
 export * from "./logic/layout";
 export * from "./logic/tile-styles";
-export { createTileRushGame, type TileRushGameHandle, type TileRushCallbacks, type GameEvent } from "./createTileRushGame";
+export {
+  createTileRushGame,
+  type TileRushGameHandle,
+  type TileRushCallbacks,
+  type TileRushGameConfig,
+  type GameEvent,
+  TileRushScene,
+} from "./createTileRushGame";

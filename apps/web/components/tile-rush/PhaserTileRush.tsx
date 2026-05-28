@@ -1,56 +1,165 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { GamePhase } from "@frx/game-engine";
-import type { GameEvent, TileRushGameHandle } from "@frx/game-engine";
+import {
+  MAX_ATTEMPTS,
+  ROUND_TIME_SECONDS,
+  SHUFFLES_PER_RUN,
+} from "@frx/game-engine";
+import type { TileRushGameHandle } from "@frx/game-engine";
+import { GameLayout } from "@/components/game/GameLayout";
+import { GameHeader } from "@/components/game/GameHeader";
+import { GameEndModal } from "@/components/tile-rush/GameEndModal";
+import { useGameSound } from "@/lib/hooks/useGameSound";
+import { addRunScoreToTotal, readTotalScore } from "@/lib/tile-rush/storage";
 
 const createGame = () =>
   import("@frx/game-engine").then((m) => m.createTileRushGame);
 
-type PhaserTileRushProps = {
-  tournamentId?: string;
-  onRunEnd?: (payload: {
-    score: number;
-    phase: GamePhase;
-    attempt: number;
-    events: GameEvent[];
-  }) => void;
+export type RunCompletePayload = {
+  attemptIndex: number;
+  matches: number;
+  durationMs: number;
+  phase: GamePhase;
 };
 
-function PhaserTileRushInner({ tournamentId, onRunEnd }: PhaserTileRushProps) {
+type PhaserTileRushProps = {
+  sessionKey: number;
+  initialAttempt?: number;
+  maxAttempts?: number;
+  roundTimeSeconds?: number;
+  persistLifetimeScore?: boolean;
+  onRunComplete?: (payload: RunCompletePayload) => void;
+  onRetryRequested?: () => void;
+  submitting?: boolean;
+  submitComplete?: boolean;
+  guestMode?: boolean;
+  finishedHref?: string;
+  finishedLabel?: string;
+  timeUpMessage?: string;
+  onTryAgain?: () => void;
+  tryAgainLabel?: string;
+  rewardPoolCredits?: number;
+  playerCount?: number;
+  maxPlayers?: number;
+  tournamentType?: string;
+};
+
+function PhaserTileRushInner({
+  sessionKey,
+  initialAttempt = 1,
+  maxAttempts = MAX_ATTEMPTS,
+  roundTimeSeconds = ROUND_TIME_SECONDS,
+  persistLifetimeScore = true,
+  onRunComplete,
+  onRetryRequested,
+  submitting = false,
+  submitComplete = false,
+  guestMode = false,
+  finishedHref,
+  finishedLabel,
+  timeUpMessage,
+  onTryAgain,
+  tryAgainLabel,
+  rewardPoolCredits,
+  playerCount,
+  maxPlayers,
+  tournamentType,
+}: PhaserTileRushProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<TileRushGameHandle | null>(null);
-  const eventsRef = useRef<GameEvent[]>([]);
+  const finalizedAttemptRef = useRef<number | null>(null);
+  const runStartedAtRef = useRef<number>(Date.now());
+  const initialAttemptRef = useRef(initialAttempt);
+  initialAttemptRef.current = initialAttempt;
+
   const [mounted, setMounted] = useState(false);
+  const [score, setScore] = useState(0);
+  const [phase, setPhase] = useState<GamePhase>("playing");
+  const [currentAttempt, setCurrentAttempt] = useState(1);
+  const [secondsLeft, setSecondsLeft] = useState(roundTimeSeconds);
+  const [tilesLeft, setTilesLeft] = useState(216);
+  const [totalScore, setTotalScore] = useState(0);
+  const [shufflesLeft, setShufflesLeft] = useState(SHUFFLES_PER_RUN);
+
+  const { muted, play, toggleMute } = useGameSound();
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  const recordRunIfNeeded = useCallback(
+    (runScore: number, endPhase: GamePhase, attempt: number) => {
+      if (finalizedAttemptRef.current === attempt) return;
+      finalizedAttemptRef.current = attempt;
+      if (persistLifetimeScore) {
+        addRunScoreToTotal(runScore);
+        setTotalScore(readTotalScore());
+      }
+      onRunComplete?.({
+        attemptIndex: attempt,
+        matches: runScore,
+        durationMs: Date.now() - runStartedAtRef.current,
+        phase: endPhase,
+      });
+    },
+    [onRunComplete, persistLifetimeScore]
+  );
+
   useEffect(() => {
     if (!mounted || !containerRef.current) return;
     let destroyed = false;
+    const parent = containerRef.current;
+
+    const attempt = Math.min(
+      Math.max(initialAttemptRef.current, 1),
+      maxAttempts
+    );
 
     void createGame().then((createTileRushGame) => {
       if (destroyed || !containerRef.current) return;
-      handleRef.current = createTileRushGame(containerRef.current, {
-        onEvent: (ev) => {
-          eventsRef.current.push(ev);
+
+      handleRef.current?.destroy();
+      handleRef.current = null;
+
+      finalizedAttemptRef.current = null;
+      runStartedAtRef.current = Date.now();
+      setPhase("playing");
+      setScore(0);
+      setSecondsLeft(roundTimeSeconds);
+      setCurrentAttempt(attempt);
+      setShufflesLeft(SHUFFLES_PER_RUN);
+      if (persistLifetimeScore) {
+        setTotalScore(readTotalScore());
+      }
+
+      handleRef.current = createTileRushGame(
+        parent,
+        {
+          onScoreChange: setScore,
+          onPhaseChange: (p) => {
+            setPhase(p);
+            if (p !== "playing") {
+              const state = handleRef.current?.scene.getState();
+              if (state) {
+                recordRunIfNeeded(state.score, p, state.attempt);
+              }
+            }
+          },
+          onAttemptChange: setCurrentAttempt,
+          onTimeTick: setSecondsLeft,
+          onTilesLeftChange: setTilesLeft,
+          onShufflesLeftChange: setShufflesLeft,
+          onSound: (id) => play(id),
         },
-        onPhaseChange: (phase) => {
-          if (phase !== "playing") {
-            const state = handleRef.current?.scene.getState();
-            onRunEnd?.({
-              score: state?.score ?? 0,
-              phase,
-              attempt: state?.attempt ?? 1,
-              events: [...eventsRef.current],
-            });
-            eventsRef.current = [];
-          }
-        },
-      });
+        {
+          initialAttempt: attempt,
+          maxAttempts,
+          roundTimeSeconds,
+        }
+      );
     });
 
     return () => {
@@ -58,21 +167,97 @@ function PhaserTileRushInner({ tournamentId, onRunEnd }: PhaserTileRushProps) {
       handleRef.current?.destroy();
       handleRef.current = null;
     };
-  }, [mounted, onRunEnd, tournamentId]);
+  }, [
+    mounted,
+    sessionKey,
+    maxAttempts,
+    roundTimeSeconds,
+    persistLifetimeScore,
+    play,
+    recordRunIfNeeded,
+  ]);
+
+  useEffect(() => {
+    finalizedAttemptRef.current = null;
+  }, [currentAttempt]);
+
+  const onRetry = useCallback(() => {
+    if (currentAttempt >= maxAttempts) return;
+    onRetryRequested?.();
+  }, [currentAttempt, maxAttempts, onRetryRequested]);
+
+  const modalOpen = phase !== "playing";
+  const canRetry = currentAttempt < maxAttempts;
 
   return (
-    <div
-      ref={containerRef}
-      className="relative h-[min(72vh,680px)] min-h-[480px] w-full overflow-hidden rounded-2xl border border-white/10 bg-[#0a0a12]"
-    />
+    <>
+      <div className="h-full min-h-0">
+        <GameLayout
+          header={
+            <GameHeader
+              score={score}
+              attempt={currentAttempt}
+              maxAttempts={maxAttempts}
+              secondsRemaining={secondsLeft}
+              totalScore={persistLifetimeScore ? totalScore : undefined}
+              tilesLeft={tilesLeft}
+              rewardPoolCredits={rewardPoolCredits}
+              playerCount={playerCount}
+              maxPlayers={maxPlayers}
+              tournamentType={tournamentType}
+              soundMuted={muted}
+              onToggleSound={toggleMute}
+            />
+          }
+          center={
+            <div
+              ref={containerRef}
+              className="relative h-full min-h-[360px] w-full overflow-hidden rounded-xl border border-white/10 bg-[#0a0a12]"
+            />
+          }
+          bottom={
+            <p className="pb-1 text-center text-[11px] text-slate-500">
+              Tap selectable tiles · match triples · use Shuffle on the board
+            </p>
+          }
+        />
+      </div>
+      <GameEndModal
+        open={modalOpen}
+        kind={
+          phase === "cleared"
+            ? "cleared"
+            : phase === "timeUp"
+              ? "timeUp"
+              : "gameOver"
+        }
+        score={score}
+        canRetry={canRetry}
+        onRetry={onRetry}
+        submitting={submitting}
+        submitComplete={submitComplete}
+        guestMode={guestMode}
+        finishedHref={finishedHref}
+        finishedLabel={finishedLabel}
+        timeUpMessage={timeUpMessage}
+        onTryAgain={onTryAgain}
+        tryAgainLabel={tryAgainLabel}
+      />
+    </>
   );
 }
 
 export const PhaserTileRush = dynamic(
   () => Promise.resolve(PhaserTileRushInner),
-  { ssr: false, loading: () => (
-    <div className="flex h-[480px] items-center justify-center rounded-2xl border border-white/10 bg-black/40 text-slate-400">
-      Loading Tile Rush…
-    </div>
-  ) }
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex h-full min-h-[360px] items-center justify-center rounded-xl border border-white/10 bg-black/40 text-slate-400">
+        Loading Tile Rush…
+      </div>
+    ),
+  }
 );
+
+/** Primary game client — Phaser 3 canvas with React HUD + end modal. */
+export const TileRushGame = PhaserTileRush;

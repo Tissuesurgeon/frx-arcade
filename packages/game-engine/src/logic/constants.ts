@@ -25,8 +25,15 @@ export function getTrayMax(matchesScored: number): number {
 
 export const MAX_ATTEMPTS = 3;
 
+/** Guest try mode limits */
+export const GUEST_MAX_ATTEMPTS = 5;
+export const GUEST_ROUND_TIME_SECONDS = 2 * 60;
+
 /** Countdown per run; at 0 the round ends (score = matches in that time). */
 export const ROUND_TIME_SECONDS = 5 * 60;
+
+/** Delay before clearing matched tiles from tray (ms). */
+export const MATCH_CLEAR_MS = 320;
 
 /** Power-up: reshuffle types on the board; limited per run. */
 export const SHUFFLES_PER_RUN = 2;

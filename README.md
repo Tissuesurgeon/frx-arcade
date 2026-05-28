@@ -105,14 +105,13 @@ Tile Rush is a **triple-match survival puzzle** inspired by mahjong solitaire la
 
 ### Game client
 
-Competitive play uses a **React + Framer Motion** client (`apps/web/components/tile-rush/`):
+Tile Rush runs on **Phaser 3** (`packages/game-engine`):
 
-- `TileRushGame` — main game loop
-- `TileGrid` / `Tile` — board rendering (mobile-fit layout on small screens)
-- `Tray` / `ActionBar` — collection bar and shuffle
-- `GameEndModal` — attempt results, wallet sign, retry
+- `createTileRushGame` — Phaser scene: board, tray, shuffle, timer, match logic
+- `PhaserTileRush` / `TileRushGame` — React wrapper with HUD (`GameHeader`), sound, and `GameEndModal`
+- Used on `/play` and `/try`
 
-A **Phaser 3** engine also exists in `packages/game-engine` for optional/alternate mounting (`PhaserTileRush.tsx`).
+Game logic (board layout, turtle mahjong, triple-match rules) lives in `packages/game-engine/src/logic/`.
 
 ---
 
@@ -230,7 +229,7 @@ frx-arcade/
 | **Frontend** | Next.js 15, React 19, Tailwind CSS 4, Framer Motion, Zustand, TanStack Query, wagmi/viem, Socket.IO client |
 | **Backend** | Express, Prisma, PostgreSQL, Redis, Socket.IO, viem, LangChain (OpenAI optional) |
 | **Contracts** | Solidity 0.8.26, Foundry, Uniswap V4 (`v4-core`, `v4-periphery`) |
-| **Game** | React tile client + Phaser 3 engine package |
+| **Game** | Phaser 3 (`@frx/game-engine`) + React HUD shell |
 | **Wallet** | OKX Wallet (X Layer testnet) |
 | **Deploy** | Vercel (web), Railway (API + Postgres + Redis) |
 

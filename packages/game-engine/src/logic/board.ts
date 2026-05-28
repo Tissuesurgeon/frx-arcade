@@ -107,6 +107,28 @@ export function getSelectableTileIds(boardTiles: Tile[]): Set<string> {
   return selectable;
 }
 
+/** Insert a tile and group all tray tiles by face number (same digit together). */
+export function groupTrayByMatchKey(tray: TrayTile[]): TrayTile[] {
+  const order: number[] = [];
+  const groups = new Map<number, TrayTile[]>();
+  for (const t of tray) {
+    const k = tileMatchKey(t.type);
+    if (!groups.has(k)) {
+      groups.set(k, []);
+      order.push(k);
+    }
+    groups.get(k)!.push(t);
+  }
+  return order.flatMap((k) => groups.get(k)!);
+}
+
+export function addTileToTrayGrouped(
+  tray: TrayTile[],
+  tile: TrayTile,
+): TrayTile[] {
+  return groupTrayByMatchKey([...tray, tile]);
+}
+
 /** First face-number group (match key 0..TILE_FACE_COUNT-1) with ≥3 tiles in tray, or null. */
 export function findTripleMatchKey(tray: TrayTile[]): number | null {
   const counts = new Map<number, number>();
