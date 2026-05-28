@@ -142,7 +142,13 @@ export function WalletConnectModal() {
                     </a>
                   </div>
                 ) : step === 1 ? (
-                  <button
+                  <>
+                    <p className="rounded-lg border border-cyan-500/20 bg-cyan-950/30 px-3 py-2 text-xs text-cyan-100">
+                      OKX uses <strong>two separate popups</strong>: first to connect,
+                      then a second one to sign in. After connecting, you must click
+                      &quot;Approve sign-in message&quot; below.
+                    </p>
+                    <button
                     type="button"
                     onClick={() => void handleConnect()}
                     disabled={busy || connecting}
@@ -155,16 +161,17 @@ export function WalletConnectModal() {
                     )}
                     Connect OKX Wallet
                   </button>
+                  </>
                 ) : (
                   <>
                     <p className="rounded-lg border border-emerald-500/30 bg-emerald-950/30 px-3 py-2 text-xs text-emerald-200">
-                      OKX linked
-                      {address ? ` (${truncateAddress(address)})` : ""}.{" "}
+                      <strong>Step 1 done</strong> — OKX linked
+                      {address ? ` (${truncateAddress(address)})` : ""}.
                       {challengeLoading
-                        ? "Preparing sign-in message…"
+                        ? " Loading sign-in message…"
                         : signInReady
-                          ? "Click below — OKX will ask you to approve the message."
-                          : "Preparing sign-in message…"}
+                          ? " Click the button below — OKX will open a second popup to approve the message."
+                          : " Loading sign-in message…"}
                     </p>
                     <button
                       type="button"

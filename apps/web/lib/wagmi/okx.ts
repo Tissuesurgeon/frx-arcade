@@ -24,49 +24,66 @@ function isEip1193(p: unknown): p is EIP1193Provider {
   );
 }
 
-/**
- * OKX Provider API: use top-level `window.okxwallet` for EVM RPC (eth_requestAccounts, personal_sign).
- * @see https://github.com/gecyg601/okx-wallet-integration — params: ["message", "account"]
- */
-export function getOkxWalletProvider(win?: Window): EIP1193Provider | undefined {
+/** All OKX EVM provider objects, most likely first. */
+export function getOkxProviderCandidates(win?: Window): EIP1193Provider[] {
   const w = (win ?? (typeof window !== "undefined" ? window : undefined)) as
     | OkxWindow
     | undefined;
-  if (!w) return undefined;
+  if (!w) return [];
 
-  if (isEip1193(w.okxwallet)) return w.okxwallet;
+  const out: EIP1193Provider[] = [];
+  const seen = new Set<EIP1193Provider>();
 
-  const okxNested = w.okxwallet as OkxWindow["okxwallet"];
-  if (okxNested && isEip1193(okxNested.ethereum)) return okxNested.ethereum;
+  const add = (p: unknown) => {
+    if (isEip1193(p) && !seen.has(p)) {
+      seen.add(p);
+      out.push(p);
+    }
+  };
+
+  add(w.okxwallet);
+  add(w.okxwallet?.ethereum);
 
   const eth = w.ethereum;
   if (eth?.providers?.length) {
-    const okx = eth.providers.find(
-      (p: OkxInjectedProvider) => p.isOkxWallet || p.isOKExWallet
-    );
-    if (isEip1193(okx)) return okx;
+    for (const p of eth.providers) {
+      if (p.isOkxWallet || p.isOKExWallet) add(p);
+    }
   }
 
-  if (eth && (eth.isOkxWallet || eth.isOKExWallet) && isEip1193(eth)) {
-    return eth;
-  }
+  if (eth && (eth.isOkxWallet || eth.isOKExWallet)) add(eth);
+  add(w.okexchain);
 
-  if (isEip1193(w.okexchain)) return w.okexchain;
-
-  return undefined;
+  return out;
 }
 
-/** @deprecated Use getOkxWalletProvider — kept for wagmi connector wiring. */
+/** Provider used for the last successful OKX connect — sign must use the same object. */
+let activeOkxProvider: EIP1193Provider | null = null;
+
+export function getActiveOkxProvider(): EIP1193Provider | undefined {
+  if (activeOkxProvider && getOkxProviderCandidates().includes(activeOkxProvider)) {
+    return activeOkxProvider;
+  }
+  return getOkxProviderCandidates()[0];
+}
+
+export function setActiveOkxProvider(provider: EIP1193Provider): void {
+  activeOkxProvider = provider;
+}
+
+export function getOkxWalletProvider(win?: Window): EIP1193Provider | undefined {
+  return getActiveOkxProvider() ?? getOkxProviderCandidates(win)[0];
+}
+
+/** @deprecated Use getOkxWalletProvider */
 export function getOkxEthereumProvider(win?: Window): EIP1193Provider | undefined {
   return getOkxWalletProvider(win);
 }
 
-/** Extension script present (may still be locked / empty keyring). */
 export function isOkxWalletInstalled(): boolean {
-  return getOkxWalletProvider() !== undefined;
+  return getOkxProviderCandidates().length > 0;
 }
 
-/** Human-readable errors for OKX / extension issues seen in the browser console. */
 export function parseWalletConnectError(err: unknown): string {
   const msg =
     err instanceof Error
@@ -88,7 +105,7 @@ export function parseWalletConnectError(err: unknown): string {
   }
 
   if (/connector already connected/i.test(msg)) {
-    return "Wallet already linked in OKX — finishing sign in…";
+    return "Wallet already linked in OKX — click Approve sign-in message (step 2).";
   }
 
   if (/failed to fetch|cannot reach api|networkerror/i.test(msg)) {

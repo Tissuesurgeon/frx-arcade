@@ -18,7 +18,7 @@ export function usePoolOnboarding() {
   const router = useRouter();
   const { token, creditBalance, setCreditBalance } = useSessionStore();
   const { setConnectOpen, setDepositOpen, setWithdrawOpen } = useUIStore();
-  const { ensureConnected, signIn } = useWalletAuth();
+  const { ensureConnected } = useWalletAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,16 +28,13 @@ export function usePoolOnboarding() {
       const wallet = await ensureConnected();
       if (!wallet) {
         setConnectOpen(true);
-        throw new Error("Connect OKX Wallet on X Layer Testnet.");
+        throw new Error("Connect OKX Wallet, then approve the sign-in message (step 2).");
       }
-      await signIn();
-      authToken = useSessionStore.getState().token;
-    }
-    if (!authToken) {
-      throw new Error("Sign in failed. Approve the message in OKX Wallet.");
+      setConnectOpen(true);
+      throw new Error("Sign in required — click Approve sign-in message in the wallet popup.");
     }
     return authToken;
-  }, [ensureConnected, setConnectOpen, signIn, token]);
+  }, [ensureConnected, setConnectOpen, token]);
 
   const joinPool = useCallback(
     async (tournamentId: string) => {

@@ -1,14 +1,12 @@
-import { toHex, type EIP1193Provider } from "viem";
+import { type EIP1193Provider } from "viem";
 import { XLAYER_CHAIN_ID } from "@frx/shared";
-import { connect, getAccount } from "wagmi/actions";
+import { connect, getAccount, signMessage } from "wagmi/actions";
 import { okxWalletConnector, wagmiConfig, xLayer } from "./config";
-import { getOkxWalletProvider } from "./okx";
-
-function isUserRejected(err: unknown): boolean {
-  const msg =
-    err instanceof Error ? err.message : typeof err === "string" ? err : "";
-  return /user rejected|user denied|cancelled|canceled|4001/i.test(msg);
-}
+import {
+  getActiveOkxProvider,
+  getOkxProviderCandidates,
+  setActiveOkxProvider,
+} from "./okx";
 
 function isConnectorAlreadyConnected(err: unknown): boolean {
   const msg =
@@ -28,48 +26,65 @@ function withWalletLock<T>(fn: () => Promise<T>): Promise<T> {
   return next;
 }
 
-function getProvider(): EIP1193Provider {
-  const provider = getOkxWalletProvider();
-  if (!provider) {
-    throw new Error(
-      "OKX Wallet extension not detected. Install it, unlock it, and refresh."
-    );
-  }
-  return provider;
+function rawRequest(
+  provider: EIP1193Provider,
+  args: { method: string; params?: unknown }
+): Promise<unknown> {
+  const request = provider.request.bind(provider) as (a: {
+    method: string;
+    params?: unknown;
+  }) => Promise<unknown>;
+  return request(args);
 }
 
-/** Prompt OKX connect — always uses eth_requestAccounts (first popup). */
+/** Prompt OKX connect — uses eth_requestAccounts (popup #1). Remembers which provider worked. */
 export async function requestOkxAccounts(): Promise<`0x${string}`> {
   return withWalletLock(async () => {
-    const accounts = (await getProvider().request({
-      method: "eth_requestAccounts",
-    })) as string[];
-
-    const account = accounts[0];
-    if (!account) {
+    const candidates = getOkxProviderCandidates();
+    if (candidates.length === 0) {
       throw new Error(
-        "OKX Wallet returned no account. Unlock the extension and try again."
+        "OKX Wallet extension not detected. Install it, unlock it, and refresh."
       );
     }
 
-    return account as `0x${string}`;
+    let lastErr: unknown;
+    for (const provider of candidates) {
+      try {
+        const accounts = (await rawRequest(provider, {
+          method: "eth_requestAccounts",
+        })) as string[];
+
+        const account = accounts[0];
+        if (!account) continue;
+
+        setActiveOkxProvider(provider);
+        return account as `0x${string}`;
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+
+    if (lastErr instanceof Error) throw lastErr;
+    throw new Error(
+      "OKX Wallet returned no account. Unlock the extension and try again."
+    );
   });
 }
 
 /** Read authorized accounts without prompting (after connect). */
 export async function readOkxAccounts(): Promise<`0x${string}` | undefined> {
-  const provider = getOkxWalletProvider();
+  const provider = getActiveOkxProvider() ?? getOkxProviderCandidates()[0];
   if (!provider) return undefined;
 
   return withWalletLock(async () => {
-    const accounts = (await provider.request({
+    const accounts = (await rawRequest(provider, {
       method: "eth_accounts",
     })) as string[];
     return accounts[0] ? (accounts[0] as `0x${string}`) : undefined;
   });
 }
 
-/** Best-effort wagmi session for swaps / chain reads — never call during personal_sign. */
+/** Wagmi sync only AFTER sign-in — never during connect/sign (steals OKX popup slot). */
 export async function syncWagmiAfterOkxConnect(): Promise<void> {
   const live = getAccount(wagmiConfig);
   if (live.isConnected && live.address) return;
@@ -87,22 +102,25 @@ export async function syncWagmiAfterOkxConnect(): Promise<void> {
         chainId: xLayer.id,
       });
     } catch {
-      // direct OKX provider still works for auth + manual tx fallback
+      // swaps can still use sendOkxTransaction
     }
   }
 }
 
 const xLayerHex = `0x${XLAYER_CHAIN_ID.toString(16)}`;
 
-/** Switch OKX to X Layer testnet before on-chain actions (separate user gesture from sign-in). */
 export async function ensureOkxXLayerChain(): Promise<void> {
   return withWalletLock(async () => {
-    const provider = getProvider();
-    const chainId = (await provider.request({ method: "eth_chainId" })) as string;
+    const provider = getActiveOkxProvider() ?? getOkxProviderCandidates()[0];
+    if (!provider) throw new Error("OKX Wallet not found.");
+
+    const chainId = (await rawRequest(provider, {
+      method: "eth_chainId",
+    })) as string;
     if (chainId?.toLowerCase() === xLayerHex.toLowerCase()) return;
 
     try {
-      await provider.request({
+      await rawRequest(provider, {
         method: "wallet_switchEthereumChain",
         params: [{ chainId: xLayerHex }],
       });
@@ -110,7 +128,7 @@ export async function ensureOkxXLayerChain(): Promise<void> {
       const msg = err instanceof Error ? err.message : "";
       if (!/4902|unrecognized chain/i.test(msg)) throw err;
 
-      await provider.request({
+      await rawRequest(provider, {
         method: "wallet_addEthereumChain",
         params: [
           {
@@ -127,22 +145,21 @@ export async function ensureOkxXLayerChain(): Promise<void> {
 }
 
 /**
- * Request SIWE signature via OKX Provider API (second popup).
- * OKX docs: params: [plainMessage, accountFromEthRequestAccounts]
+ * Request SIWE signature (popup #2).
+ * One personal_sign per click on the same provider that connected.
  */
 export async function signOkxPersonalMessage(
   account: `0x${string}`,
   message: string
 ): Promise<`0x${string}`> {
   return withWalletLock(async () => {
-    const provider = getProvider();
+    const provider =
+      getActiveOkxProvider() ?? getOkxProviderCandidates()[0];
+    if (!provider) {
+      throw new Error("OKX Wallet not found. Connect again, then sign in.");
+    }
 
-    const rawRequest = provider.request.bind(provider) as (args: {
-      method: string;
-      params?: unknown;
-    }) => Promise<unknown>;
-
-    const signature = (await rawRequest({
+    const signature = (await rawRequest(provider, {
       method: "personal_sign",
       params: [message, account],
     })) as string;
@@ -151,23 +168,20 @@ export async function signOkxPersonalMessage(
       return signature as `0x${string}`;
     }
 
-    const hexMessage = toHex(message);
-    const hexSignature = (await rawRequest({
-      method: "personal_sign",
-      params: [hexMessage, account],
-    })) as string;
-
-    if (typeof hexSignature !== "string" || !hexSignature.startsWith("0x")) {
-      throw new Error(
-        "OKX did not return a signature. Open the OKX extension — the approval may be waiting there."
-      );
+    const wagmiAccount = getAccount(wagmiConfig);
+    if (
+      wagmiAccount.isConnected &&
+      wagmiAccount.address?.toLowerCase() === account.toLowerCase()
+    ) {
+      return signMessage(wagmiConfig, { message, account });
     }
 
-    return hexSignature as `0x${string}`;
+    throw new Error(
+      "OKX did not show a sign prompt. After connecting, click “Approve sign-in message” (step 2). Also check the OKX extension icon for a pending approval."
+    );
   });
 }
 
-/** Send a transaction through OKX when wagmi walletClient is unavailable. */
 export async function sendOkxTransaction(args: {
   from: `0x${string}`;
   to: `0x${string}`;
@@ -177,8 +191,11 @@ export async function sendOkxTransaction(args: {
 }): Promise<`0x${string}`> {
   return withWalletLock(async () => {
     await ensureOkxXLayerChain();
-    const provider = getProvider();
-    const hash = (await provider.request({
+    const provider =
+      getActiveOkxProvider() ?? getOkxProviderCandidates()[0];
+    if (!provider) throw new Error("OKX Wallet not found.");
+
+    const hash = (await rawRequest(provider, {
       method: "eth_sendTransaction",
       params: [
         {
