@@ -33,7 +33,7 @@ export function TileGrid({
 }: TileGridProps) {
   const isMobile = useMediaQuery("(max-width: 639px)");
   const boardRef = useRef<HTMLDivElement>(null);
-  const [boardPx, setBoardPx] = useStateSize(boardRef, isMobile);
+  const boardPx = useBoardSize(boardRef, isMobile);
   const shell = useAnimationControls();
   const reduceMotion = useReducedMotion();
   const lastShuffle = useRef(0);
@@ -106,7 +106,7 @@ export function TileGrid({
   );
 }
 
-function useStateSize(
+function useBoardSize(
   ref: RefObject<HTMLDivElement | null>,
   enabled: boolean
 ): number {
