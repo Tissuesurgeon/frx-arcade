@@ -5,7 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiFetch } from "@/lib/api";
 import { useJackpotTick } from "@/lib/hooks/useSocket";
 
-/** Live weekly jackpot total — tournament pool contributions only. */
+/** Live weekly jackpot total — settled + pending daily pool contributions. */
 export function useWeeklyJackpot() {
   const [liveCredits, setLiveCredits] = useState<number | null>(null);
 
@@ -13,7 +13,7 @@ export function useWeeklyJackpot() {
     queryKey: ["season-current"],
     queryFn: () =>
       apiFetch<{ weeklyJackpotCredits: number }>("/api/seasons/current"),
-    refetchInterval: 60_000,
+    refetchInterval: 15_000,
   });
 
   useJackpotTick(

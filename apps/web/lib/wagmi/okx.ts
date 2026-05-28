@@ -2,6 +2,17 @@ import type { EIP1193Provider } from "viem";
 
 const DISCONNECT_FLAG_KEY = "frx-wallet-disconnected";
 
+const disconnectListeners = new Set<() => void>();
+
+export function subscribeWalletDisconnect(listener: () => void): () => void {
+  disconnectListeners.add(listener);
+  return () => disconnectListeners.delete(listener);
+}
+
+function emitWalletDisconnectChange(): void {
+  disconnectListeners.forEach((l) => l());
+}
+
 type OkxInjectedProvider = EIP1193Provider & {
   isOkxWallet?: boolean;
   isOKExWallet?: boolean;
@@ -35,11 +46,13 @@ export function isWalletManuallyDisconnected(): boolean {
 export function markWalletManuallyDisconnected(): void {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(DISCONNECT_FLAG_KEY, "1");
+  emitWalletDisconnectChange();
 }
 
 export function clearWalletManuallyDisconnected(): void {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(DISCONNECT_FLAG_KEY);
+  emitWalletDisconnectChange();
 }
 
 /** All OKX EVM provider objects, most likely first. */

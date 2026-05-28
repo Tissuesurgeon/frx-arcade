@@ -41,9 +41,54 @@ function rawRequest(
   return request(args);
 }
 
-/** Prompt OKX connect — uses eth_requestAccounts (popup #1). Remembers which provider worked. */
+function clearWagmiPersistence(): void {
+  if (typeof window === "undefined") return;
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if (key.startsWith("wagmi")) {
+        localStorage.removeItem(key);
+      }
+    }
+  } catch {
+    // ignore storage errors
+  }
+}
+
+async function requestOkxPermissions(
+  provider: EIP1193Provider
+): Promise<`0x${string}`> {
+  try {
+    const permitted = (await rawRequest(provider, {
+      method: "wallet_requestPermissions",
+      params: [{ eth_accounts: {} }],
+    })) as unknown;
+    if (permitted) {
+      const accounts = (await rawRequest(provider, {
+        method: "eth_accounts",
+      })) as string[];
+      if (accounts[0]) return accounts[0] as `0x${string}`;
+    }
+  } catch {
+    // fall through to eth_requestAccounts
+  }
+
+  const accounts = (await rawRequest(provider, {
+    method: "eth_requestAccounts",
+  })) as string[];
+
+  const account = accounts[0];
+  if (!account) {
+    throw new Error(
+      "OKX Wallet returned no account. Unlock the extension and try again."
+    );
+  }
+  return account as `0x${string}`;
+}
+
+/** Prompt OKX connect — permission popup so a different account can be chosen. */
 export async function requestOkxAccounts(): Promise<`0x${string}`> {
   clearWalletManuallyDisconnected();
+  clearActiveOkxProvider();
 
   return withWalletLock(async () => {
     const candidates = getOkxProviderCandidates();
@@ -56,15 +101,9 @@ export async function requestOkxAccounts(): Promise<`0x${string}`> {
     let lastErr: unknown;
     for (const provider of candidates) {
       try {
-        const accounts = (await rawRequest(provider, {
-          method: "eth_requestAccounts",
-        })) as string[];
-
-        const account = accounts[0];
-        if (!account) continue;
-
+        const account = await requestOkxPermissions(provider);
         setActiveOkxProvider(provider);
-        return account as `0x${string}`;
+        return account;
       } catch (err) {
         lastErr = err;
       }
@@ -105,7 +144,7 @@ async function revokeOkxSiteAccess(): Promise<void> {
   }
 }
 
-/** Full disconnect: app state, wagmi, OKX site permission, active provider. */
+/** Full disconnect: app state, wagmi persistence, OKX site permission, active provider. */
 export async function disconnectOkxWallet(): Promise<void> {
   markWalletManuallyDisconnected();
   clearActiveOkxProvider();
@@ -118,10 +157,14 @@ export async function disconnectOkxWallet(): Promise<void> {
   } catch {
     // wagmi may already be disconnected
   }
+
+  clearWagmiPersistence();
 }
 
 /** Wagmi sync only AFTER sign-in — never during connect/sign (steals OKX popup slot). */
 export async function syncWagmiAfterOkxConnect(): Promise<void> {
+  if (isWalletManuallyDisconnected()) return;
+
   const live = getAccount(wagmiConfig);
   if (live.isConnected && live.address) return;
 
@@ -180,10 +223,6 @@ export async function ensureOkxXLayerChain(): Promise<void> {
   });
 }
 
-/**
- * Request SIWE signature (popup #2).
- * One personal_sign per click on the same provider that connected.
- */
 export async function signOkxPersonalMessage(
   account: `0x${string}`,
   message: string

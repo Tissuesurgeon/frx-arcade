@@ -24,7 +24,12 @@ import {
   signOkxPersonalMessage,
   syncWagmiAfterOkxConnect,
 } from "@/lib/wagmi/okxAuth";
-import { isOkxWalletInstalled, isWalletManuallyDisconnected, parseWalletConnectError } from "@/lib/wagmi/okx";
+import {
+  isOkxWalletInstalled,
+  isWalletManuallyDisconnected,
+  parseWalletConnectError,
+  subscribeWalletDisconnect,
+} from "@/lib/wagmi/okx";
 import { useSessionStore } from "@/lib/stores/session";
 
 function friendlyConnectError(err: unknown): string {
@@ -57,6 +62,14 @@ function useSignInReady(wallet?: `0x${string}`): boolean {
   );
 }
 
+function useManualDisconnect(): boolean {
+  return useSyncExternalStore(
+    subscribeWalletDisconnect,
+    () => isWalletManuallyDisconnected(),
+    () => false
+  );
+}
+
 export function useWalletAuth() {
   const { address, isConnected, chainId, status } = useAccount();
   const { connectors, isPending: connecting, error: connectError } = useConnect();
@@ -65,23 +78,21 @@ export function useWalletAuth() {
   const { token, wallet, setSession, clearSession } = useSessionStore();
   const [linkedWallet, setLinkedWallet] = useState<`0x${string}` | null>(null);
   const [challengeLoading, setChallengeLoading] = useState(false);
-  const [disconnected, setDisconnected] = useState(() =>
-    typeof window !== "undefined" ? isWalletManuallyDisconnected() : false
-  );
+  const manuallyDisconnected = useManualDisconnect();
 
   const okxConnector =
     connectors.find((c) => c.id === OKX_WALLET_CONNECTOR_ID) ?? okxWalletConnector;
 
-  const activeWallet =
-    disconnected ? undefined : ((address ?? linkedWallet) as `0x${string}` | undefined);
+  const activeWallet = manuallyDisconnected
+    ? undefined
+    : ((address ?? linkedWallet) as `0x${string}` | undefined);
   const isWalletLinked = !!activeWallet;
-  const isWalletConnected = isConnected && !!address;
+  const isWalletConnected = !manuallyDisconnected && isConnected && !!address;
   const isSignedIn = !!token && !!wallet && isWalletLinked;
   const signInReady = useSignInReady(activeWallet);
 
   useEffect(() => {
-    if (isWalletManuallyDisconnected()) {
-      setDisconnected(true);
+    if (manuallyDisconnected) {
       setLinkedWallet(null);
       return;
     }
@@ -92,12 +103,12 @@ export function useWalletAuth() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [manuallyDisconnected]);
 
   useEffect(() => {
-    if (isWalletManuallyDisconnected() || disconnected) return;
+    if (manuallyDisconnected) return;
     if (address) setLinkedWallet(address);
-  }, [address, disconnected]);
+  }, [address, manuallyDisconnected]);
 
   useEffect(() => {
     if (status === "connecting" || status === "reconnecting") return;
@@ -145,7 +156,6 @@ export function useWalletAuth() {
         "OKX Wallet extension not detected. Install it from the Chrome Web Store, then refresh this page."
       );
     }
-    setDisconnected(false);
     const walletAddr = await requestOkxAccounts();
     setLinkedWallet(walletAddr);
     void prefetchSignInChallenge(walletAddr);
@@ -227,7 +237,6 @@ export function useWalletAuth() {
   const signOut = useCallback(async () => {
     clearSession();
     setLinkedWallet(null);
-    setDisconnected(true);
     clearCachedAuthChallenge();
     await disconnectOkxWallet();
     disconnect();

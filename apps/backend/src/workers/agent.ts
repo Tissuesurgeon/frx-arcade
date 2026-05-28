@@ -9,6 +9,7 @@ import {
   dailyTournamentDefaults,
   ensureCurrentSeason,
   getActiveWeeklyEpoch,
+  getWeeklyJackpotDisplayCredits,
   weeklyTournamentDefaults,
 } from "../services/economy";
 
@@ -109,6 +110,7 @@ export async function spawnWeeklyPoolIfNeeded(): Promise<boolean> {
   const season = await ensureCurrentSeason();
   const title = await generatePoolTitle("weekly");
   const now = new Date();
+  const jackpotPool = await getWeeklyJackpotDisplayCredits(epoch);
 
   await prisma.tournament.create({
     data: {
@@ -119,8 +121,8 @@ export async function spawnWeeklyPoolIfNeeded(): Promise<boolean> {
       maxPlayers: weeklyTournamentDefaults.maxPlayers,
       type: weeklyTournamentDefaults.type,
       tier: weeklyTournamentDefaults.tier,
-      prizePoolCredits: epoch.creditBalance + epoch.hookContributionCredits,
-      rewardPoolCredits: epoch.creditBalance + epoch.hookContributionCredits,
+      prizePoolCredits: jackpotPool,
+      rewardPoolCredits: jackpotPool,
       playerCount: 0,
       startsAt: now,
       endsAt: epoch.endsAt,
@@ -135,7 +137,7 @@ export async function spawnWeeklyPoolIfNeeded(): Promise<boolean> {
       severity: "INFO",
       category: "tournament_spawn",
       title: "Weekly jackpot opened",
-      summary: `AI agent opened weekly jackpot "${title}" (${WEEKLY_ENTRY_FEE} FRX entry). Pool: ${epoch.creditBalance + epoch.hookContributionCredits} credits.`,
+      summary: `AI agent opened weekly jackpot "${title}" (${WEEKLY_ENTRY_FEE} FRX entry). Pool: ${jackpotPool} credits.`,
       metadata: { kind: "weekly", epochId: epoch.id },
     },
   });

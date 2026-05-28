@@ -9,7 +9,7 @@ import {
   getActiveWeeklyEpoch,
   getUserQualification,
   contributeTournamentJackpotToEpoch,
-  getWeeklyJackpotPoolCredits,
+  getWeeklyJackpotDisplayCredits,
 } from "../services/economy";
 import { spawnDailyPoolIfNeeded } from "./agent";
 
@@ -165,7 +165,8 @@ export async function settleWeeklyTournament(tournamentId: string) {
 
   const epoch = tournament.weeklyEpoch ?? (await getActiveWeeklyEpoch());
   const poolCredits =
-    tournament.rewardPoolCredits + getWeeklyJackpotPoolCredits(epoch);
+    tournament.rewardPoolCredits +
+    (await getWeeklyJackpotDisplayCredits(epoch));
 
   const participants = await prisma.tournamentParticipant.findMany({
     where: { tournamentId },

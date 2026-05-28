@@ -63,11 +63,31 @@ export async function ensureCurrentSeason() {
   return season;
 }
 
-/** Weekly jackpot pool = daily tournament 10% slices only (settled into epoch). */
+/** Settled weekly jackpot from daily pools that have finished. */
 export function getWeeklyJackpotPoolCredits(epoch: {
   dailyContributionCredits: number;
 }): number {
   return epoch.dailyContributionCredits;
+}
+
+/** Settled + pending (active daily pools) contributions for live UI. */
+export async function getWeeklyJackpotDisplayCredits(epoch: {
+  id: string;
+  dailyContributionCredits: number;
+}): Promise<number> {
+  const pending = await prisma.tournament.aggregate({
+    where: {
+      type: "DAILY",
+      weeklyEpochId: epoch.id,
+      jackpotContributedAt: null,
+      status: { in: ["OPEN", "LIVE", "CLOSED"] },
+    },
+    _sum: { jackpotContributionCredits: true },
+  });
+
+  return (
+    epoch.dailyContributionCredits + (pending._sum.jackpotContributionCredits ?? 0)
+  );
 }
 
 export async function ensurePlatformTreasury() {
@@ -137,8 +157,8 @@ export async function contributeTournamentJackpotToEpoch(
     }),
   ]);
 
-  const { broadcastJackpotTick } = await import("../socket/broadcast");
-  await broadcastJackpotTick();
+  const { broadcastEconomyUpdates } = await import("../socket/broadcast");
+  await broadcastEconomyUpdates();
 
   return amount;
 }

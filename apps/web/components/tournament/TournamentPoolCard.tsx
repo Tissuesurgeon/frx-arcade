@@ -16,6 +16,7 @@ type TournamentPoolCardProps = {
   poolStatus?: PoolStatus;
   qualifiedForWeekly?: boolean;
   dailyCompletions?: number;
+  weeklyJackpotCredits?: number;
   onJoin: (tournamentId: string) => void;
   onConvert?: () => void;
 };
@@ -33,6 +34,7 @@ export function TournamentPoolCard({
   poolStatus = "available",
   qualifiedForWeekly = false,
   dailyCompletions = 0,
+  weeklyJackpotCredits,
   onJoin,
   onConvert,
 }: TournamentPoolCardProps) {
@@ -49,7 +51,11 @@ export function TournamentPoolCard({
   );
   const rewardPool = tournament.rewardPoolCredits ?? tournament.prizePoolCredits;
   const rewardLabel =
-    tournament.type === "DAILY" ? getDailyRewardDisplay(tournament) : rewardPool.toLocaleString();
+    tournament.type === "DAILY"
+      ? getDailyRewardDisplay(tournament)
+      : isWeekly && weeklyJackpotCredits != null
+        ? weeklyJackpotCredits.toLocaleString()
+        : rewardPool.toLocaleString();
 
   const weeklyBlocked =
     isWeekly && !qualifiedForWeekly && poolStatus === "available";
@@ -141,7 +147,8 @@ export function TournamentPoolCard({
 
       {isWeekly ? (
         <p className="mt-2 text-xs text-slate-400">
-          Qualification: {dailyCompletions}/5 daily tournaments completed
+          Live jackpot pool (includes pending daily contributions). Qualification:{" "}
+          {dailyCompletions}/5 daily tournaments completed
           {qualifiedForWeekly ? (
             <span className="ml-1 text-emerald-400">· Qualified</span>
           ) : null}

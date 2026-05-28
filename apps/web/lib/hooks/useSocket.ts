@@ -49,11 +49,36 @@ export function useLeaderboardLive(
 export function useJackpotTick(onTick: (t: JackpotTick) => void) {
   useEffect(() => {
     const socket = io(`${WS_URL}${SOCKET_NAMESPACES.jackpot}`, {
-      transports: ["websocket"],
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
     });
     socket.on("jackpot:tick", onTick);
     return () => {
+      socket.off("jackpot:tick", onTick);
       socket.disconnect();
     };
   }, [onTick]);
+}
+
+export function useTournamentFeedLive(
+  initial: Tournament[] | undefined,
+  onFeed: (t: Tournament[]) => void
+) {
+  useEffect(() => {
+    if (initial?.length) onFeed(initial);
+  }, [initial, onFeed]);
+
+  useEffect(() => {
+    const socket = io(`${WS_URL}${SOCKET_NAMESPACES.tournaments}`, {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+    });
+    socket.on("tournament:feed", onFeed);
+    return () => {
+      socket.off("tournament:feed", onFeed);
+      socket.disconnect();
+    };
+  }, [onFeed]);
 }

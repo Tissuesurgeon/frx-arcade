@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
-import { getActiveWeeklyEpoch, ensureCurrentSeason, getWeeklyJackpotPoolCredits } from "../services/economy";
+import { getActiveWeeklyEpoch, ensureCurrentSeason, getWeeklyJackpotDisplayCredits } from "../services/economy";
 
 export const agentRouter = Router();
 export const seasonsRouter = Router();
@@ -34,7 +34,7 @@ agentRouter.get("/economy", async (_req, res) => {
 
   res.json({
     platformTreasuryCredits: treasury?.balance ?? 0,
-    weeklyJackpotCredits: getWeeklyJackpotPoolCredits(epoch),
+    weeklyJackpotCredits: await getWeeklyJackpotDisplayCredits(epoch),
     weeklyEpochEndsAt: epoch.endsAt.toISOString(),
     openDailyPools: openDaily,
   });
@@ -52,7 +52,7 @@ seasonsRouter.get("/current", async (_req, res) => {
       startsAt: season.startsAt.toISOString(),
       endsAt: season.endsAt.toISOString(),
     },
-    weeklyJackpotCredits: getWeeklyJackpotPoolCredits(epoch),
+    weeklyJackpotCredits: await getWeeklyJackpotDisplayCredits(epoch),
   });
 });
 

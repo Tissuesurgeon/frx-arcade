@@ -2,7 +2,7 @@ import { Router } from "express";
 import { HOOK_SPLIT_BPS } from "@frx/shared";
 import { prisma } from "../lib/prisma";
 import { getHookContractAddresses } from "../services/swapVerify";
-import { getActiveWeeklyEpoch, getWeeklyJackpotPoolCredits } from "../services/economy";
+import { getActiveWeeklyEpoch, getWeeklyJackpotDisplayCredits } from "../services/economy";
 
 export const hooksRouter = Router();
 
@@ -29,10 +29,10 @@ hooksRouter.get("/metrics", async (_req, res) => {
     last24hSwaps: daily?.totalSwaps ?? 0,
     liquidityScore: daily?.liquidityScore ?? 0,
     splitBps: HOOK_SPLIT_BPS,
-    weeklyJackpotCredits: getWeeklyJackpotPoolCredits(latestJackpot),
+    weeklyJackpotCredits: await getWeeklyJackpotDisplayCredits(latestJackpot),
     jackpotEpoch: {
       id: latestJackpot.id,
-      poolCredits: getWeeklyJackpotPoolCredits(latestJackpot),
+      poolCredits: await getWeeklyJackpotDisplayCredits(latestJackpot),
       endsAt: latestJackpot.endsAt.toISOString(),
     },
   });

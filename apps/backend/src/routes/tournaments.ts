@@ -11,7 +11,7 @@ import {
   getActiveWeeklyEpoch,
   getUserQualification,
   isWeeklyQualified,
-  getWeeklyJackpotPoolCredits,
+  getWeeklyJackpotDisplayCredits,
 } from "../services/economy";
 
 export const tournamentsRouter = Router();
@@ -140,7 +140,7 @@ tournamentsRouter.get(
       qualified:
         qual.qualifiedAt != null ||
         isWeeklyQualified(qual.dailyCompletions, bestDaily?.totalScore ?? 0),
-      weeklyJackpotCredits: getWeeklyJackpotPoolCredits(epoch),
+      weeklyJackpotCredits: await getWeeklyJackpotDisplayCredits(epoch),
     });
   }
 );
@@ -364,6 +364,9 @@ tournamentsRouter.post("/join", requireAuth, async (req: AuthedRequest, res) => 
       poolClosed,
       creditBalance: creditBalanceAfter,
     });
+
+    const { broadcastEconomyUpdates } = await import("../socket/broadcast");
+    void broadcastEconomyUpdates();
   } catch (err) {
     if (err instanceof Error && err.message === "INSUFFICIENT_CREDITS") {
       res.status(400).json({ error: "Insufficient FRX Credits" });

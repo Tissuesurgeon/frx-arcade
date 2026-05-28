@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { prisma } from "../lib/prisma";
-import { getActiveWeeklyEpoch, getWeeklyJackpotPoolCredits } from "../services/economy";
+import { getActiveWeeklyEpoch, getWeeklyJackpotDisplayCredits } from "../services/economy";
 
 export const statsRouter = Router();
 
@@ -27,6 +27,6 @@ statsRouter.get("/landing", async (_req, res) => {
     activePlayers,
     liveTournaments,
     totalRewardsDistributed: rewardAgg._sum.amount ?? 0,
-    weeklyJackpotCredits: getWeeklyJackpotPoolCredits(epoch),
+    weeklyJackpotCredits: await getWeeklyJackpotDisplayCredits(epoch),
   });
 });

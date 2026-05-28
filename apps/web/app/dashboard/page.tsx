@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAccount, useBalance } from "wagmi";
 import { formatEther } from "viem";
+import type { Tournament, TournamentParticipantStatus } from "@frx/shared";
 import { GameShell } from "@/components/game/GameShell";
 import { Container } from "@/components/Container";
 import { Button } from "@/components/Button";
@@ -13,10 +14,10 @@ import { apiFetch } from "@/lib/api";
 import { usePoolOnboarding } from "@/lib/hooks/usePoolOnboarding";
 import { useWalletAuth } from "@/lib/hooks/useWalletAuth";
 import { useWeeklyJackpot } from "@/lib/hooks/useWeeklyJackpot";
+import { useTournamentFeedLive } from "@/lib/hooks/useSocket";
 import { xLayer } from "@/lib/wagmi/config";
 import { useSessionStore } from "@/lib/stores/session";
 import { getPoolStatus, getVisibleDailyPools } from "@/lib/tournaments";
-import type { Tournament, TournamentParticipantStatus } from "@frx/shared";
 
 export default function DashboardPage() {
   const [mounted, setMounted] = useState(false);
@@ -46,7 +47,18 @@ export default function DashboardPage() {
   const { data, isLoading } = useQuery({
     queryKey: ["tournaments"],
     queryFn: () => apiFetch<{ tournaments: Tournament[] }>("/api/tournaments"),
+    refetchInterval: 15_000,
   });
+
+  const [liveTournaments, setLiveTournaments] = useState<Tournament[] | null>(
+    null
+  );
+
+  const onTournamentFeed = useCallback((feed: Tournament[]) => {
+    setLiveTournaments(feed.filter((t) => t.type !== "PRACTICE"));
+  }, []);
+
+  useTournamentFeedLive(data?.tournaments, onTournamentFeed);
 
   const { data: participationsData } = useQuery({
     queryKey: ["participations", token],
@@ -78,8 +90,7 @@ export default function DashboardPage() {
       }>("/api/agent/economy"),
   });
 
-  const tournaments =
-    data?.tournaments.filter((t) => t.type !== "PRACTICE") ?? [];
+  const tournaments = liveTournaments ?? data?.tournaments.filter((t) => t.type !== "PRACTICE") ?? [];
   const participations = participationsData?.participations ?? [];
   const dailyPools = getVisibleDailyPools(tournaments, participations);
   const weeklyPools = tournaments.filter((t) => t.type === "WEEKLY_JACKPOT");
@@ -218,6 +229,7 @@ export default function DashboardPage() {
                   poolStatus={getPoolStatus(t.id, participations)}
                   qualifiedForWeekly={qualification?.qualified}
                   dailyCompletions={qualification?.dailyCompletions}
+                  weeklyJackpotCredits={weeklyJackpotCredits}
                   onConvert={openDeposit}
                   onJoin={(id) => void joinPool(id)}
                 />
