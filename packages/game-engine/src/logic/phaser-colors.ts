@@ -38,20 +38,21 @@ export function hslToHex(h: number, s: number, l: number): number {
 export type PhaserTileColors = {
   fillTop: number;
   fill: number;
-  borderBottom: number;
+  fillDeep: number;
   stroke: number;
   text: number;
+  accent: number;
 };
 
-/** Matches `tileFacePaint()` in apps/web/lib/tile-rush/tile-styles.ts */
 export function phaserTileColors(type: number): PhaserTileColors {
   const key = tileMatchKey(type);
   const h = (key * 360) / TILE_FACE_COUNT;
   return {
-    fillTop: hslToHex(h, 82, 91),
-    fill: hslToHex(h, 68, 76),
-    stroke: hslToHex(h, 55, 42),
-    borderBottom: hslToHex(h, 58, 30),
-    text: hslToHex(h, 42, 16),
+    fillTop: hslToHex(h, 78, 88),
+    fill: hslToHex(h, 65, 72),
+    fillDeep: hslToHex(h, 55, 48),
+    stroke: hslToHex(h, 50, 38),
+    text: hslToHex(h, 35, 18),
+    accent: hslToHex(h, 70, 55),
   };
 }
