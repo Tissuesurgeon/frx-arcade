@@ -1,11 +1,9 @@
 import { buildSlotPositions, getTileDiameterNorm } from "../logic/layout";
 import {
-  LAYER_OFFSET_X,
-  LAYER_OFFSET_Y,
-  MOBILE_LAYER_OFFSET_X,
-  MOBILE_LAYER_OFFSET_Y,
+  MOBILE_LAYER_OFFSET_X_PCT,
+  MOBILE_LAYER_OFFSET_Y_PCT,
+  MOBILE_TILE_ASPECT,
   MOBILE_TILE_SCALE,
-  TILE_ASPECT,
 } from "./theme";
 
 export type BoardTransform = {
@@ -15,7 +13,7 @@ export type BoardTransform = {
 };
 
 /**
- * Pixel-space board fit — dense stack layout for cognitive pressure.
+ * Pixel-space board fit — mirrors `computeMobileBoardFit` from React TileGrid.
  */
 export function computeBoardTransform(
   rectX: number,
@@ -25,17 +23,17 @@ export function computeBoardTransform(
   isMobile: boolean
 ): BoardTransform {
   const slots = buildSlotPositions();
-  const padX = isMobile ? 0.02 : 0.05;
-  const padTop = isMobile ? 0.008 : 0.035;
-  const padBottom = isMobile ? 0.012 : 0.04;
+  const padX = isMobile ? 0.028 : 0.06;
+  const padTop = isMobile ? 0.01 : 0.04;
+  const padBottom = isMobile ? 0.016 : 0.05;
   const availW = 1 - 2 * padX;
   const availH = 1 - padTop - padBottom;
-  const aspect = TILE_ASPECT;
+  const aspect = isMobile ? MOBILE_TILE_ASPECT : 1;
 
   let diameter =
-    getTileDiameterNorm() * (isMobile ? MOBILE_TILE_SCALE : 0.96);
+    getTileDiameterNorm() * (isMobile ? MOBILE_TILE_SCALE : 0.94);
 
-  for (let iter = 0; iter < 16; iter++) {
+  for (let iter = 0; iter < 14; iter++) {
     const halfW = diameter / 2;
     const halfH = halfW / aspect;
     let minX = Infinity;
@@ -56,7 +54,7 @@ export function computeBoardTransform(
 
     const fit = Math.min(availW / cw, availH / ch, 1);
     if (fit >= 0.996) break;
-    diameter *= fit * 0.975;
+    diameter *= fit * 0.97;
   }
 
   const halfW = diameter / 2;
@@ -78,8 +76,13 @@ export function computeBoardTransform(
 
   const tileW = diameter * rectW;
   const tileH = (diameter / aspect) * rectH;
-  const layerOffsetX = isMobile ? MOBILE_LAYER_OFFSET_X : LAYER_OFFSET_X;
-  const layerOffsetY = isMobile ? MOBILE_LAYER_OFFSET_Y : LAYER_OFFSET_Y;
+
+  const layerOffsetX = isMobile
+    ? rectW * (MOBILE_LAYER_OFFSET_X_PCT / 100)
+    : 0;
+  const layerOffsetY = isMobile
+    ? rectH * (MOBILE_LAYER_OFFSET_Y_PCT / 100)
+    : 0;
 
   const mapPosition = (xNorm: number, yNorm: number, layer: number) => ({
     x:
@@ -95,17 +98,4 @@ export function computeBoardTransform(
   });
 
   return { tileW, tileH, mapPosition };
-}
-
-export function getBoardArea(
-  width: number,
-  height: number
-): { x: number; y: number; w: number; h: number } {
-  const margin = width < 640 ? 2 : 8;
-  return {
-    x: margin,
-    y: margin,
-    w: width - margin * 2,
-    h: height - margin * 2,
-  };
 }

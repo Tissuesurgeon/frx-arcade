@@ -1,41 +1,50 @@
-/** Valorant + Steam esports + mobile puzzle palette */
+/** React UI palette — matches apps/web globals.css + Tailwind game components */
+
 export const THEME = {
-  bgDeep: 0x0a0e14,
-  bgMid: 0x0f1923,
-  bgPanel: 0x1a2332,
-  valorantRed: 0xff4655,
-  valorantRedDim: 0xcc3642,
-  hudCyan: 0x26d0ff,
-  hudCyanDim: 0x1a9fbf,
-  steamBlue: 0x66c0f4,
-  accentGold: 0xffc84d,
-  text: 0xece8e1,
-  textMuted: 0x8b9bb4,
+  bgTop: 0x0b0f1a,
+  bgBottom: 0x0d1324,
+  panelFill: 0xffffff,
+  panelFillAlpha: 0.04,
+  borderWhiteAlpha: 0.1,
+  textPrimary: 0xffffff,
+  textMuted: 0x94a3b8,
+  textSlate300: 0xcbd5e1,
+  timerUrgentBorder: 0xef4444,
+  timerUrgentBg: 0x450a0a,
+  timerUrgentText: 0xfca5a5,
+  chipBg: 0xffffff,
+  chipBgAlpha: 0.04,
+  mobileBoardTop: 0x27654a,
+  mobileBoardBottom: 0x1f4d38,
+  mobileBoardBorder: 0x14532d,
+  desktopBoardBg: 0x0b0f1a,
+  desktopBoardBgAlpha: 0.9,
+  trayDanger: 0xef4444,
+  trayDangerBg: 0x450a0a,
+  shuffleViolet: 0x8b5cf6,
+  shuffleVioletDark: 0x6d28d9,
+  shuffleDisabled: 0x64748b,
   shadow: 0x000000,
-  glowSelectable: 0x26d0ff,
-  glowMatch: 0xff4655,
-  boardVignette: 0x000000,
-  gridLine: 0xffffff,
+  starIndigo: 0x6366f1,
+  starCyan: 0x22d3ee,
+  starViolet: 0xa78bfa,
 } as const;
 
 export const FONT = {
-  display: '"DIN Next", "Rajdhani", "Segoe UI", system-ui, sans-serif',
+  sans: 'system-ui, -apple-system, "Segoe UI", sans-serif',
   mono: '"JetBrains Mono", "Roboto Mono", ui-monospace, monospace',
 } as const;
 
 export const MOBILE_BREAK = 640;
-export const TILE_ASPECT = 0.82;
-export const MOBILE_TILE_SCALE = 0.92;
-
-/** Layer stack depth — stronger offset = more cognitive pressure */
-export const LAYER_OFFSET_X = -4.5;
-export const LAYER_OFFSET_Y = -5.5;
-export const MOBILE_LAYER_OFFSET_X = -3;
-export const MOBILE_LAYER_OFFSET_Y = -3.8;
+export const MOBILE_TILE_SCALE = 0.9;
+export const MOBILE_TILE_ASPECT = 0.82;
+export const MOBILE_LAYER_OFFSET_X_PCT = -0.12;
+export const MOBILE_LAYER_OFFSET_Y_PCT = -0.16;
 
 export const EASE = {
-  fly: "Back.easeOut",
-  flyDuration: 420,
+  fly: "Sine.easeInOut",
+  flyDuration: 320,
   matchShrink: 280,
   hover: "Sine.easeInOut",
+  shufflePulse: 450,
 } as const;

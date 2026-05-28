@@ -107,8 +107,8 @@ Tile Rush is a **triple-match survival puzzle** inspired by mahjong solitaire la
 
 Tile Rush runs on **Phaser 3** (`packages/game-engine`):
 
-- `createTileRushGame` — Phaser scene: board, tray, shuffle, timer, match logic
-- `PhaserTileRush` / `TileRushGame` — React wrapper with HUD (`GameHeader`), sound, and `GameEndModal`
+- `createTileRushGame` — Full-viewport Phaser scene: HUD, board, tray, shuffle, timer, match logic (React UI parity)
+- `TileRushGame` — Thin React wrapper (dynamic import, `GameEndModal`, sound); all gameplay UI lives in Phaser
 - Used on `/play` and `/try`
 
 Game logic (board layout, turtle mahjong, triple-match rules) lives in `packages/game-engine/src/logic/`.

@@ -1,19 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { GamePhase } from "@frx/game-engine/logic/types";
-import type { TrayTile } from "@frx/game-engine/logic/types";
 import type { TileRushGameHandle } from "@frx/game-engine/phaser";
 import {
-  getTrayMax,
   MAX_ATTEMPTS,
   ROUND_TIME_SECONDS,
-  SHUFFLES_PER_RUN,
 } from "@/lib/tile-rush/constants";
-import { GameLayout } from "@/components/game/GameLayout";
-import { GameHeader } from "@/components/game/GameHeader";
-import { ActionBar } from "@/components/game/ActionBar";
-import { Tray } from "@/components/game/Tray";
 import { GameEndModal } from "@/components/tile-rush/GameEndModal";
 import type { RunCompletePayload } from "@/components/tile-rush/tile-rush-types";
 import { useGameSound } from "@/lib/hooks/useGameSound";
@@ -66,7 +59,6 @@ export default function PhaserTileRushClient({
   tournamentType,
 }: PhaserTileRushClientProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const trayRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<TileRushGameHandle | null>(null);
   const finalizedAttemptRef = useRef<number | null>(null);
   const runStartedAtRef = useRef<number>(Date.now());
@@ -76,34 +68,9 @@ export default function PhaserTileRushClient({
   const [score, setScore] = useState(0);
   const [phase, setPhase] = useState<GamePhase>("playing");
   const [currentAttempt, setCurrentAttempt] = useState(1);
-  const [secondsLeft, setSecondsLeft] = useState(roundTimeSeconds);
-  const [tilesLeft, setTilesLeft] = useState(216);
-  const [tray, setTray] = useState<TrayTile[]>([]);
   const [totalScore, setTotalScore] = useState(0);
-  const [shufflesLeft, setShufflesLeft] = useState(SHUFFLES_PER_RUN);
 
   const { muted, play, toggleMute } = useGameSound();
-  const trayMax = useMemo(() => getTrayMax(score), [score]);
-  const boardDisabled = phase !== "playing";
-
-  const getTrayTarget = useCallback((slotIndex: number) => {
-    const canvas = containerRef.current;
-    const trayRoot = trayRef.current;
-    if (!canvas || !trayRoot) return null;
-
-    const slot = trayRoot.querySelector<HTMLElement>(
-      `[data-tray-slot="${slotIndex}"]`
-    );
-    if (!slot) return null;
-
-    const canvasRect = canvas.getBoundingClientRect();
-    const slotRect = slot.getBoundingClientRect();
-
-    return {
-      x: slotRect.left + slotRect.width / 2 - canvasRect.left,
-      y: slotRect.top + slotRect.height / 2 - canvasRect.top,
-    };
-  }, []);
 
   const recordRunIfNeeded = useCallback(
     (runScore: number, endPhase: GamePhase, attempt: number) => {
@@ -122,6 +89,26 @@ export default function PhaserTileRushClient({
     },
     [onRunComplete, persistLifetimeScore]
   );
+
+  useEffect(() => {
+    handleRef.current?.setHudProps({
+      rewardPoolCredits,
+      playerCount,
+      maxPlayers,
+      tournamentType,
+      totalScore: persistLifetimeScore ? totalScore : undefined,
+      persistLifetimeScore,
+      soundMuted: muted,
+    });
+  }, [
+    rewardPoolCredits,
+    playerCount,
+    maxPlayers,
+    tournamentType,
+    totalScore,
+    persistLifetimeScore,
+    muted,
+  ]);
 
   useEffect(() => {
     const parent = containerRef.current;
@@ -144,10 +131,7 @@ export default function PhaserTileRushClient({
       runStartedAtRef.current = Date.now();
       setPhase("playing");
       setScore(0);
-      setTray([]);
-      setSecondsLeft(roundTimeSeconds);
       setCurrentAttempt(attempt);
-      setShufflesLeft(SHUFFLES_PER_RUN);
       if (persistLifetimeScore) {
         setTotalScore(readTotalScore());
       }
@@ -166,17 +150,25 @@ export default function PhaserTileRushClient({
             }
           },
           onAttemptChange: setCurrentAttempt,
-          onTimeTick: setSecondsLeft,
-          onTilesLeftChange: setTilesLeft,
-          onTrayChange: setTray,
-          onShufflesLeftChange: setShufflesLeft,
+          onTimeTick: () => {},
+          onTilesLeftChange: () => {},
+          onShufflesLeftChange: () => {},
           onSound: (id) => play(id),
-          getTrayTarget,
+          onToggleSound: toggleMute,
         },
         {
           initialAttempt: attempt,
           maxAttempts,
           roundTimeSeconds,
+          hudProps: {
+            rewardPoolCredits,
+            playerCount,
+            maxPlayers,
+            tournamentType,
+            totalScore: persistLifetimeScore ? readTotalScore() : undefined,
+            persistLifetimeScore,
+            soundMuted: muted,
+          },
         }
       );
     });
@@ -192,8 +184,12 @@ export default function PhaserTileRushClient({
     roundTimeSeconds,
     persistLifetimeScore,
     play,
+    toggleMute,
     recordRunIfNeeded,
-    getTrayTarget,
+    rewardPoolCredits,
+    playerCount,
+    maxPlayers,
+    tournamentType,
   ]);
 
   useEffect(() => {
@@ -205,54 +201,15 @@ export default function PhaserTileRushClient({
     onRetryRequested?.();
   }, [currentAttempt, maxAttempts, onRetryRequested]);
 
-  const onShuffle = useCallback(() => {
-    handleRef.current?.shuffleBoard();
-  }, []);
-
   const modalOpen = phase !== "playing";
   const canRetry = currentAttempt < maxAttempts;
 
   return (
     <>
       <div className="h-full min-h-0">
-        <GameLayout
-          header={
-            <GameHeader
-              score={score}
-              attempt={currentAttempt}
-              maxAttempts={maxAttempts}
-              secondsRemaining={secondsLeft}
-              totalScore={persistLifetimeScore ? totalScore : undefined}
-              tilesLeft={tilesLeft}
-              rewardPoolCredits={rewardPoolCredits}
-              playerCount={playerCount}
-              maxPlayers={maxPlayers}
-              tournamentType={tournamentType}
-              soundMuted={muted}
-              onToggleSound={toggleMute}
-            />
-          }
-          center={
-            <div
-              ref={containerRef}
-              className="relative h-full min-h-[280px] w-full touch-manipulation sm:min-h-[360px]"
-            />
-          }
-          bottom={
-            <div
-              ref={trayRef}
-              className="mx-auto flex w-full max-w-5xl items-end gap-2 sm:gap-3"
-            >
-              <Tray tray={tray} maxSlots={trayMax} compact />
-              <ActionBar
-                shufflesLeft={shufflesLeft}
-                shufflesMax={SHUFFLES_PER_RUN}
-                onShuffle={onShuffle}
-                shuffleDisabled={boardDisabled}
-                compact
-              />
-            </div>
-          }
+        <div
+          ref={containerRef}
+          className="relative h-full min-h-[480px] w-full touch-manipulation"
         />
       </div>
       <GameEndModal

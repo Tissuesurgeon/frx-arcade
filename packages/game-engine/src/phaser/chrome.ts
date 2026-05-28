@@ -1,110 +1,88 @@
 import * as Phaser from "phaser";
-import { THEME, FONT } from "./theme";
+import { THEME } from "./theme";
+import type { LayoutZones, Rect } from "./layout-zones";
+import { getBoardStageRect } from "./layout-zones";
 
-export function drawEsportsBackground(
+export function drawPageBackground(
   scene: Phaser.Scene,
   width: number,
-  height: number
+  height: number,
+  target?: Phaser.GameObjects.Graphics
 ): Phaser.GameObjects.Graphics {
-  const g = scene.add.graphics();
-  g.fillGradientStyle(THEME.bgDeep, THEME.bgDeep, THEME.bgMid, THEME.bgPanel, 1);
+  const g = target ?? scene.add.graphics();
+  g.clear();
+  g.fillGradientStyle(THEME.bgTop, THEME.bgTop, THEME.bgBottom, THEME.bgBottom, 1);
   g.fillRect(0, 0, width, height);
 
-  // Valorant-style diagonal accent
-  g.fillStyle(THEME.valorantRed, 0.04);
-  g.fillTriangle(0, 0, width * 0.55, 0, 0, height * 0.45);
+  const dots = [
+    { x: width * 0.2, y: height * 0.3, c: THEME.starIndigo, a: 0.12 },
+    { x: width * 0.7, y: height * 0.6, c: THEME.starCyan, a: 0.1 },
+    { x: width * 0.4, y: height * 0.8, c: THEME.starViolet, a: 0.08 },
+  ];
+  for (const d of dots) {
+    g.fillStyle(d.c, d.a);
+    g.fillCircle(d.x, d.y, 2);
+  }
 
-  g.fillStyle(THEME.hudCyan, 0.03);
-  g.fillTriangle(width, height, width * 0.4, height, width, height * 0.5);
-
-  g.setDepth(-20);
+  g.setDepth(-100);
   return g;
 }
 
-export function drawPressureBoard(
+export function drawBoardFrame(
   scene: Phaser.Scene,
-  x: number,
-  y: number,
-  w: number,
-  h: number
+  zones: LayoutZones
 ): Phaser.GameObjects.Container {
+  const stage = getBoardStageRect(zones);
   const c = scene.add.container(0, 0);
   const g = scene.add.graphics();
-  const r = 14;
+  const r = zones.isMobile ? 12 : zones.width >= 1024 ? 24 : 16;
 
-  // Outer HUD bracket frame (Valorant)
-  g.lineStyle(2, THEME.valorantRed, 0.75);
-  g.strokeRoundedRect(x, y, w, h, r);
-  g.lineStyle(1, THEME.hudCyan, 0.25);
-  g.strokeRoundedRect(x + 3, y + 3, w - 6, h - 6, r - 2);
-
-  // Corner brackets
-  const bl = 18;
-  g.lineStyle(2, THEME.valorantRed, 0.9);
-  // TL
-  g.beginPath();
-  g.moveTo(x, y + bl);
-  g.lineTo(x, y);
-  g.lineTo(x + bl, y);
-  g.strokePath();
-  // TR
-  g.beginPath();
-  g.moveTo(x + w - bl, y);
-  g.lineTo(x + w, y);
-  g.lineTo(x + w, y + bl);
-  g.strokePath();
-  // BL
-  g.beginPath();
-  g.moveTo(x, y + h - bl);
-  g.lineTo(x, y + h);
-  g.lineTo(x + bl, y + h);
-  g.strokePath();
-  // BR
-  g.beginPath();
-  g.moveTo(x + w - bl, y + h);
-  g.lineTo(x + w, y + h);
-  g.lineTo(x + w, y + h - bl);
-  g.strokePath();
-
-  // Inner arena — dark with subtle grid
-  g.fillStyle(0x0d1219, 0.95);
-  g.fillRoundedRect(x + 6, y + 6, w - 12, h - 12, r - 4);
-
-  g.lineStyle(1, THEME.gridLine, 0.04);
-  const gridStep = 24;
-  for (let gx = x + 12; gx < x + w - 12; gx += gridStep) {
-    g.lineBetween(gx, y + 12, gx, y + h - 12);
+  if (zones.isMobile) {
+    g.fillGradientStyle(
+      THEME.mobileBoardTop,
+      THEME.mobileBoardTop,
+      THEME.mobileBoardBottom,
+      THEME.mobileBoardBottom,
+      1
+    );
+    g.fillRoundedRect(stage.x, stage.y, stage.w, stage.h, r);
+    g.lineStyle(1, THEME.mobileBoardBorder, 0.5);
+    g.strokeRoundedRect(stage.x, stage.y, stage.w, stage.h, r);
+    g.fillStyle(THEME.shadow, 0.25);
+    g.fillRoundedRect(stage.x + 2, stage.y + 2, stage.w, stage.h, r);
+  } else {
+    g.fillStyle(THEME.desktopBoardBg, THEME.desktopBoardBgAlpha);
+    g.fillRoundedRect(stage.x, stage.y, stage.w, stage.h, r);
+    g.lineStyle(1, THEME.panelFill, THEME.borderWhiteAlpha);
+    g.strokeRoundedRect(stage.x, stage.y, stage.w, stage.h, r);
   }
-  for (let gy = y + 12; gy < y + h - 12; gy += gridStep) {
-    g.lineBetween(x + 12, gy, x + w - 12, gy);
-  }
-
-  // Vignette overlay (pressure)
-  g.fillStyle(THEME.boardVignette, 0.35);
-  g.fillRect(x + 6, y + 6, w - 12, h * 0.08);
-  g.fillRect(x + 6, y + h - 6 - h * 0.08, w - 12, h * 0.08);
-  g.fillRect(x + 6, y + 6, (w - 12) * 0.06, h - 12);
-  g.fillRect(x + w - 6 - (w - 12) * 0.06, y + 6, (w - 12) * 0.06, h - 12);
 
   c.add(g);
   c.setDepth(0);
   return c;
 }
 
-export function drawTileCountBadge(
+export function drawFooterDivider(
   scene: Phaser.Scene,
-  x: number,
-  y: number,
-  count: number
-): Phaser.GameObjects.Text {
-  return scene.add
-    .text(x, y, `${count} TILES`, {
-      fontFamily: FONT.mono,
-      fontSize: "10px",
-      color: "#8b9bb4",
-      letterSpacing: 2,
-    })
-    .setOrigin(0, 0)
-    .setDepth(2)
-    .setAlpha(0.7);
+  zones: LayoutZones,
+  target?: Phaser.GameObjects.Graphics
+): Phaser.GameObjects.Graphics {
+  const g = target ?? scene.add.graphics();
+  g.clear();
+  if (!zones.isMobile) {
+    g.lineStyle(1, THEME.panelFill, THEME.borderWhiteAlpha);
+    g.lineBetween(zones.paddingX, zones.footer.y, zones.width - zones.paddingX, zones.footer.y);
+  }
+  g.setDepth(1);
+  return g;
+}
+
+export function boardInnerRect(stage: Rect, isMobile: boolean): Rect {
+  const pad = isMobile ? 4 : 10;
+  return {
+    x: stage.x + pad,
+    y: stage.y + pad,
+    w: stage.w - pad * 2,
+    h: stage.h - pad * 2,
+  };
 }
