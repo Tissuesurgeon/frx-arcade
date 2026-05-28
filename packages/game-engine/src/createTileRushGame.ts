@@ -14,10 +14,35 @@ import {
   ROUND_TIME_SECONDS,
   SHUFFLES_PER_RUN,
 } from "./logic/constants";
-import { getTileDiameterNorm } from "./logic/layout";
-import { phaserTileColors } from "./logic/phaser-colors";
 import type { GamePhase, Tile, TrayTile } from "./logic/types";
-import { tileLabel } from "./logic/tile-styles";
+import { phaserTileColors } from "./logic/phaser-colors";
+import {
+  computeBoardTransform,
+  getBoardFrameRect,
+  type BoardTransform,
+} from "./phaser/board-layout";
+import {
+  createShuffleButton,
+  drawBackground,
+  drawBoardFrame,
+  drawTrayDock,
+  drawTraySlot,
+  updateShuffleButton,
+} from "./phaser/chrome";
+import {
+  burstMatchParticles,
+  ensureParticleTexture,
+  floatScoreText,
+  popInTrayTile,
+  pulseCamera,
+  tweenPickTile,
+} from "./phaser/effects";
+import {
+  addTileSprite,
+  ensureTileTextures,
+  setTileHighlight,
+} from "./phaser/tile-textures";
+import { MOBILE_BREAK } from "./phaser/theme";
 
 export type GameEvent = {
   type: "tile_tap" | "match" | "shuffle" | "run_end";
@@ -39,7 +64,9 @@ export type TileRushCallbacks = {
   onTilesLeftChange?: (count: number) => void;
   onShufflesLeftChange?: (count: number) => void;
   onEvent?: (event: GameEvent) => void;
-  onSound?: (id: "pick" | "match" | "shuffle" | "tick" | "cleared" | "gameOver" | "timeUp") => void;
+  onSound?: (
+    id: "pick" | "match" | "shuffle" | "tick" | "cleared" | "gameOver" | "timeUp"
+  ) => void;
 };
 
 type SceneData = {
@@ -47,8 +74,8 @@ type SceneData = {
   config: TileRushGameConfig;
 };
 
-const TRAY_ZONE_H = 72;
-const ACTION_ZONE_H = 52;
+const TRAY_ZONE_H = 88;
+const ACTION_ZONE_H = 58;
 
 export class TileRushScene extends Phaser.Scene {
   private boardTiles: Tile[] = [];
@@ -62,11 +89,15 @@ export class TileRushScene extends Phaser.Scene {
   private shufflesLeft = SHUFFLES_PER_RUN;
   private callbacks: TileRushCallbacks = {};
   private tileSprites = new Map<string, Phaser.GameObjects.Container>();
-  private trayZone!: Phaser.GameObjects.Container;
+  private trayLayer!: Phaser.GameObjects.Container;
+  private chromeLayer!: Phaser.GameObjects.Container;
+  private boardLayer!: Phaser.GameObjects.Container;
   private shuffleBtn!: Phaser.GameObjects.Container;
+  private boardTransform!: BoardTransform;
   private timerEvent?: Phaser.Time.TimerEvent;
   private resolvingTray = false;
   private matchClearTimer?: Phaser.Time.TimerEvent;
+  private inputLocked = false;
 
   constructor() {
     super({ key: "TileRushScene" });
@@ -85,12 +116,16 @@ export class TileRushScene extends Phaser.Scene {
   }
 
   create() {
-    this.cameras.main.setBackgroundColor("#0a0a12");
-    this.trayZone = this.add.container(0, 0);
+    ensureParticleTexture(this);
+
+    this.chromeLayer = this.add.container(0, 0);
+    this.boardLayer = this.add.container(0, 0);
+    this.trayLayer = this.add.container(0, 0);
+
     this.buildShuffleButton();
-    this.renderBoard();
+    this.layoutChrome();
+    this.renderBoard(true);
     this.renderTray();
-    this.layoutUi();
 
     this.timerEvent = this.time.addEvent({
       delay: 1000,
@@ -98,7 +133,16 @@ export class TileRushScene extends Phaser.Scene {
       callback: () => this.tickTimer(),
     });
 
-    this.scale.on("resize", () => this.layoutUi());
+    this.scale.on("resize", () => {
+      this.layoutChrome();
+      this.renderBoard(true);
+      this.renderTray();
+      this.positionShuffleButton();
+    });
+  }
+
+  private isMobile(): boolean {
+    return this.scale.width < MOBILE_BREAK;
   }
 
   private resetRun(attempt: number) {
@@ -110,6 +154,7 @@ export class TileRushScene extends Phaser.Scene {
     this.secondsLeft = this.roundTimeSeconds;
     this.shufflesLeft = SHUFFLES_PER_RUN;
     this.resolvingTray = false;
+    this.inputLocked = false;
     this.callbacks.onAttemptChange?.(this.currentAttempt);
     this.callbacks.onScoreChange?.(this.score);
     this.callbacks.onPhaseChange?.(this.phase);
@@ -121,30 +166,61 @@ export class TileRushScene extends Phaser.Scene {
   reloadSession(attempt: number) {
     this.matchClearTimer?.remove();
     this.matchClearTimer = undefined;
-    this.resolvingTray = false;
+    this.inputLocked = false;
     this.resetRun(attempt);
-    this.renderBoard();
+    this.renderBoard(true);
     this.renderTray();
-    this.updateShuffleButton();
+    this.updateShuffleBtn();
   }
 
-  private getBoardRect() {
-    const pad = 12;
-    const top = pad;
-    const bottom = this.scale.height - TRAY_ZONE_H - ACTION_ZONE_H - pad;
-    const w = this.scale.width - pad * 2;
-    const h = Math.max(120, bottom - top);
-    return { x: pad, y: top, w, h };
+  private layoutChrome() {
+    const { width, height } = this.scale;
+    this.chromeLayer.removeAll(true);
+
+    const bg = drawBackground(this, width, height);
+    const frame = getBoardFrameRect(width, height, TRAY_ZONE_H, ACTION_ZONE_H);
+    const boardFrame = drawBoardFrame(this, frame.x, frame.y, frame.w, frame.h);
+
+    this.boardTransform = computeBoardTransform(
+      frame.x,
+      frame.y,
+      frame.w,
+      frame.h,
+      this.isMobile()
+    );
+
+    const dockW = Math.min(width - 24, 520);
+    const dockX = (width - dockW) / 2;
+    const dockY = height - TRAY_ZONE_H - ACTION_ZONE_H + 6;
+    const trayDock = drawTrayDock(this, dockX, dockY, dockW, TRAY_ZONE_H - 8);
+
+    this.chromeLayer.add([bg, boardFrame, trayDock]);
   }
 
-  private layoutUi() {
-    this.renderBoard();
-    this.renderTray();
+  private buildShuffleButton() {
+    this.shuffleBtn = createShuffleButton(this, 0, 0, () => this.shuffleBoard());
     this.positionShuffleButton();
   }
 
+  private positionShuffleButton() {
+    const x = this.scale.width - 78;
+    const y = this.scale.height - ACTION_ZONE_H / 2 - 6;
+    this.shuffleBtn.setPosition(x, y);
+    this.updateShuffleBtn();
+  }
+
+  private updateShuffleBtn() {
+    const enabled =
+      this.phase === "playing" &&
+      !this.resolvingTray &&
+      !this.inputLocked &&
+      this.shufflesLeft > 0 &&
+      this.boardTiles.length > 0;
+    updateShuffleButton(this.shuffleBtn, this.shufflesLeft, enabled);
+  }
+
   private tickTimer() {
-    if (this.phase !== "playing" || this.resolvingTray) return;
+    if (this.phase !== "playing" || this.resolvingTray || this.inputLocked) return;
     if (this.secondsLeft <= 0) {
       this.endRun("timeUp");
       return;
@@ -156,128 +232,109 @@ export class TileRushScene extends Phaser.Scene {
     }
   }
 
-  private buildShuffleButton() {
-    const bg = this.add.rectangle(0, 0, 120, 40, 0x1e293b, 0.95);
-    bg.setStrokeStyle(2, 0x475569, 0.9);
-    const label = this.add.text(0, 0, "Shuffle", {
-      fontFamily: "system-ui, sans-serif",
-      fontSize: "14px",
-      color: "#e2e8f0",
-    }).setOrigin(0.5);
+  private renderBoard(instant = false) {
+    if (!this.boardTransform) return;
 
-    this.shuffleBtn = this.add.container(0, 0, [bg, label]);
-    this.shuffleBtn.setSize(120, 40);
-    this.shuffleBtn.setInteractive(
-      new Phaser.Geom.Rectangle(-60, -20, 120, 40),
-      Phaser.Geom.Rectangle.Contains
-    );
-    this.shuffleBtn.on("pointerdown", () => this.shuffleBoard());
-    this.positionShuffleButton();
-  }
-
-  private positionShuffleButton() {
-    const y = this.scale.height - ACTION_ZONE_H / 2 - 8;
-    const x = this.scale.width - 72;
-    this.shuffleBtn.setPosition(x, y);
-    this.updateShuffleButton();
-  }
-
-  private updateShuffleButton() {
-    const enabled =
-      this.phase === "playing" &&
-      !this.resolvingTray &&
-      this.shufflesLeft > 0 &&
-      this.boardTiles.length > 0;
-    this.shuffleBtn.setAlpha(enabled ? 1 : 0.45);
-    const label = this.shuffleBtn.list[1] as Phaser.GameObjects.Text;
-    label.setText(`Shuffle (${this.shufflesLeft})`);
-  }
-
-  private renderBoard() {
-    this.tileSprites.forEach((c) => c.destroy());
-    this.tileSprites.clear();
-
-    const rect = this.getBoardRect();
-    const span = Math.min(rect.w, rect.h);
-    const tileSize = Math.max(22, getTileDiameterNorm() * span * 0.92);
+    const { tileW, tileH, mapPosition } = this.boardTransform;
+    ensureTileTextures(this, tileW, tileH);
 
     const sorted = [...this.boardTiles].sort((a, b) => a.zIndex - b.zIndex);
     const selectable = getSelectableTileIds(this.boardTiles);
+    const existing = new Set(this.tileSprites.keys());
+    const next = new Set(sorted.map((t) => t.id));
+
+    for (const id of existing) {
+      if (!next.has(id)) {
+        this.tileSprites.get(id)?.destroy();
+        this.tileSprites.delete(id);
+      }
+    }
 
     for (const tile of sorted) {
-      const x = rect.x + tile.xNorm * rect.w;
-      const y = rect.y + tile.yNorm * rect.h;
-      const colors = phaserTileColors(tile.type);
+      const pos = mapPosition(tile.xNorm, tile.yNorm, tile.layer);
       const isSelectable = selectable.has(tile.id);
+      let container = this.tileSprites.get(tile.id);
 
-      const container = this.add.container(x, y);
-      container.setDepth(tile.zIndex);
-
-      const shadow = this.add.rectangle(2, 3, tileSize, tileSize, 0x000000, 0.35);
-      const bg = this.add.rectangle(0, 0, tileSize, tileSize, colors.fill, 1);
-      bg.setStrokeStyle(2, colors.stroke, isSelectable ? 0.95 : 0.35);
-
-      const fontSize = Math.max(11, Math.floor(tileSize * 0.38));
-      const label = this.add.text(0, 0, tileLabel(tile.type), {
-        fontFamily: "system-ui, sans-serif",
-        fontSize: `${fontSize}px`,
-        color: `#${(colors.text & 0xffffff).toString(16).padStart(6, "0")}`,
-        fontStyle: "bold",
-      }).setOrigin(0.5);
-
-      container.add([shadow, bg, label]);
-      container.setSize(tileSize, tileSize);
-      container.setInteractive(
-        new Phaser.Geom.Rectangle(-tileSize / 2, -tileSize / 2, tileSize, tileSize),
-        Phaser.Geom.Rectangle.Contains
-      );
-      container.setData("tileId", tile.id);
-      container.on("pointerdown", () => this.onTileTap(tile.id));
-      container.setAlpha(isSelectable ? 1 : 0.5);
-
-      if (isSelectable) {
-        container.on("pointerover", () => bg.setStrokeStyle(2, 0x67e8f9, 1));
-        container.on("pointerout", () => bg.setStrokeStyle(2, colors.stroke, 0.95));
+      if (container) {
+        const wasSelectable = container.getData("selectable") as boolean;
+        if (wasSelectable !== isSelectable) {
+          container.destroy();
+          this.tileSprites.delete(tile.id);
+          container = undefined;
+        } else {
+          container.setPosition(pos.x, pos.y);
+          container.setDepth(100 + tile.zIndex);
+          container.setAlpha(isSelectable ? 1 : 0.42);
+          container.setScale(isSelectable ? 1 : 0.96);
+        }
       }
 
-      this.tileSprites.set(tile.id, container);
+      if (!container) {
+        container = addTileSprite(this, tile.type, tileW, tileH, isSelectable);
+        container.setPosition(pos.x, pos.y);
+        container.setDepth(100 + tile.zIndex);
+        container.setData("tileId", tile.id);
+        container.setInteractive(
+          new Phaser.Geom.Rectangle(-tileW / 2, -tileH / 2, tileW, tileH),
+          Phaser.Geom.Rectangle.Contains
+        );
+        container.on("pointerdown", () => this.onTileTap(tile.id));
+        if (isSelectable) {
+          container.on("pointerover", () => setTileHighlight(container!, true));
+          container.on("pointerout", () => setTileHighlight(container!, false));
+        }
+        this.boardLayer.add(container);
+        this.tileSprites.set(tile.id, container);
+
+        if (!instant) {
+          container.setScale(0.5);
+          container.setAlpha(0);
+          this.tweens.add({
+            targets: container,
+            scale: isSelectable ? 1 : 0.96,
+            alpha: isSelectable ? 1 : 0.42,
+            duration: 280,
+            ease: "Back.easeOut",
+          });
+        }
+      }
     }
   }
 
-  private renderTray() {
-    this.trayZone.removeAll(true);
-
+  private getTrayLayout() {
     const cap = getTrayMax(this.score);
-    const slotSize = 36;
-    const gap = 6;
+    const slotSize = Math.min(44, this.scale.width * 0.1);
+    const gap = 7;
     const totalW = cap * slotSize + (cap - 1) * gap;
-    const y = this.scale.height - TRAY_ZONE_H / 2 - ACTION_ZONE_H + 4;
+    const y = this.scale.height - TRAY_ZONE_H / 2 - ACTION_ZONE_H + 10;
     const startX = this.scale.width / 2 - totalW / 2 + slotSize / 2;
+    return { cap, slotSize, gap, totalW, y, startX };
+  }
+
+  private renderTray(animateNew = false) {
+    this.trayLayer.removeAll(true);
+    const { cap, slotSize, y, startX, gap } = this.getTrayLayout();
 
     for (let i = 0; i < cap; i++) {
       const x = startX + i * (slotSize + gap);
-      const slot = this.add.rectangle(x, y, slotSize, slotSize, 0x0f172a, 0.92);
-      slot.setStrokeStyle(1, 0x334155, 0.9);
-      this.trayZone.add(slot);
+      const slot = drawTraySlot(this, x, y, slotSize);
+      this.trayLayer.add(slot);
 
       const tt = this.tray[i];
       if (tt) {
-        const colors = phaserTileColors(tt.type);
-        const tileBg = this.add.rectangle(x, y, slotSize - 2, slotSize - 2, colors.fill, 1);
-        tileBg.setStrokeStyle(1, colors.stroke, 0.8);
-        const lbl = this.add.text(x, y, tileLabel(tt.type), {
-          fontFamily: "system-ui, sans-serif",
-          fontSize: "13px",
-          color: `#${(colors.text & 0xffffff).toString(16).padStart(6, "0")}`,
-          fontStyle: "bold",
-        }).setOrigin(0.5);
-        this.trayZone.add([tileBg, lbl]);
+        const tile = addTileSprite(this, tt.type, slotSize - 4, (slotSize - 4) / 0.82, true);
+        tile.setPosition(x, y);
+        tile.setDepth(5100 + i);
+        this.trayLayer.add(tile);
+        if (animateNew && i === this.tray.length - 1) {
+          popInTrayTile(tile, 0);
+        }
       }
     }
   }
 
   private onTileTap(tileId: string) {
-    if (this.phase !== "playing" || this.resolvingTray) return;
+    if (this.phase !== "playing" || this.resolvingTray || this.inputLocked) return;
     const tile = this.boardTiles.find((t) => t.id === tileId);
     if (!tile || !getSelectableTileIds(this.boardTiles).has(tileId)) return;
 
@@ -287,12 +344,11 @@ export class TileRushScene extends Phaser.Scene {
       return;
     }
 
+    this.inputLocked = true;
     this.callbacks.onSound?.("pick");
     this.emitEvent("tile_tap", { tileId, type: tile.type });
 
-    this.boardTiles = this.boardTiles.filter((t) => t.id !== tileId);
-    this.callbacks.onTilesLeftChange?.(this.boardTiles.length);
-
+    const sprite = this.tileSprites.get(tileId);
     const trayWithNew = addTileToTrayGrouped(this.tray, {
       id: tile.id,
       type: tile.type,
@@ -301,62 +357,101 @@ export class TileRushScene extends Phaser.Scene {
     const finalTray = resolved.tray;
     const newScore = this.score + resolved.matches;
 
-    this.renderBoard();
+    const finishLogic = () => {
+      this.boardTiles = this.boardTiles.filter((t) => t.id !== tileId);
+      this.callbacks.onTilesLeftChange?.(this.boardTiles.length);
+      this.renderBoard(true);
 
-    const finishTurn = () => {
-      this.score = newScore;
-      this.callbacks.onScoreChange?.(this.score);
-      this.tray = finalTray;
-      this.renderTray();
-      this.updateShuffleButton();
+      const completeTurn = () => {
+        this.score = newScore;
+        this.callbacks.onScoreChange?.(this.score);
+        this.tray = finalTray;
+        this.renderTray();
+        this.updateShuffleBtn();
+        this.inputLocked = false;
 
-      const capAfter = getTrayMax(this.score);
-      if (this.boardTiles.length === 0) {
-        this.endRun("cleared");
+        const capAfter = getTrayMax(this.score);
+        if (this.boardTiles.length === 0) {
+          this.endRun("cleared");
+          return;
+        }
+        if (isTrayStuck(this.tray, capAfter)) {
+          this.endRun("gameOver");
+        }
+      };
+
+      if (resolved.matches > 0) {
+        this.callbacks.onSound?.("match");
+        this.emitEvent("match", { count: resolved.matches });
+        pulseCamera(this);
+        const bounds = sprite?.getBounds();
+        const cx = bounds?.centerX ?? this.scale.width / 2;
+        const cy = bounds?.centerY ?? this.scale.height / 2;
+        const faceColor = phaserTileColors(tile.type).fill;
+        burstMatchParticles(this, cx, cy, faceColor);
+        floatScoreText(this, cx, cy - 20, resolved.matches);
+
+        this.resolvingTray = true;
+        this.tray = trayWithNew;
+        this.renderTray(true);
+        this.matchClearTimer?.remove();
+        this.matchClearTimer = this.time.delayedCall(MATCH_CLEAR_MS, () => {
+          this.matchClearTimer = undefined;
+          this.resolvingTray = false;
+          completeTurn();
+        });
         return;
       }
-      if (isTrayStuck(this.tray, capAfter)) {
-        this.endRun("gameOver");
-      }
+
+      this.tray = finalTray;
+      this.renderTray(true);
+      completeTurn();
     };
 
-    if (resolved.matches > 0) {
-      this.callbacks.onSound?.("match");
-      this.emitEvent("match", { count: resolved.matches });
-      this.cameras.main.flash(80, 34, 211, 238, false);
-      this.resolvingTray = true;
-      this.tray = trayWithNew;
-      this.renderTray();
-      this.matchClearTimer?.remove();
-      this.matchClearTimer = this.time.delayedCall(MATCH_CLEAR_MS, () => {
-        this.matchClearTimer = undefined;
-        this.resolvingTray = false;
-        finishTurn();
+    if (sprite) {
+      sprite.removeAllListeners();
+      sprite.disableInteractive();
+      tweenPickTile(sprite, () => {
+        sprite.destroy();
+        this.tileSprites.delete(tileId);
+        finishLogic();
       });
-      return;
+    } else {
+      finishLogic();
     }
-
-    this.tray = finalTray;
-    this.renderTray();
-    finishTurn();
   }
 
   shuffleBoard() {
     if (
       this.phase !== "playing" ||
       this.resolvingTray ||
+      this.inputLocked ||
       this.shufflesLeft <= 0 ||
       this.boardTiles.length === 0
     ) {
       return;
     }
+
     this.boardTiles = shuffleBoardTileTypes(this.boardTiles);
     this.shufflesLeft -= 1;
     this.callbacks.onSound?.("shuffle");
     this.callbacks.onShufflesLeftChange?.(this.shufflesLeft);
     this.emitEvent("shuffle", { remaining: this.shufflesLeft });
-    this.renderBoard();
-    this.updateShuffleButton();
+
+    for (const [, spr] of this.tileSprites) {
+      this.tweens.add({
+        targets: spr,
+        angle: Phaser.Math.Between(-8, 8),
+        duration: 120,
+        yoyo: true,
+        ease: "Sine.easeInOut",
+      });
+    }
+
+    this.time.delayedCall(140, () => {
+      this.renderBoard(false);
+      this.updateShuffleBtn();
+    });
   }
 
   getState() {
@@ -374,12 +469,13 @@ export class TileRushScene extends Phaser.Scene {
   private endRun(phase: GamePhase) {
     if (this.phase !== "playing") return;
     this.phase = phase;
+    this.inputLocked = true;
     this.callbacks.onPhaseChange?.(phase);
     if (phase === "cleared") this.callbacks.onSound?.("cleared");
     else if (phase === "gameOver") this.callbacks.onSound?.("gameOver");
     else if (phase === "timeUp") this.callbacks.onSound?.("timeUp");
     this.emitEvent("run_end", { phase, score: this.score, attempt: this.currentAttempt });
-    this.updateShuffleButton();
+    this.updateShuffleBtn();
   }
 
   private emitEvent(type: GameEvent["type"], data: Record<string, unknown>) {
@@ -410,7 +506,7 @@ export function createTileRushGame(
     parent,
     width: parent.clientWidth || 800,
     height: parent.clientHeight || 600,
-    backgroundColor: "#0a0a12",
+    backgroundColor: "#07050f",
     scale: {
       mode: Phaser.Scale.RESIZE,
       autoCenter: Phaser.Scale.CENTER_BOTH,
@@ -418,6 +514,11 @@ export function createTileRushGame(
     scene: TileRushScene,
     fps: { target: 60 },
     audio: { noAudio: true },
+    render: {
+      antialias: true,
+      pixelArt: false,
+      roundPixels: true,
+    },
   });
 
   game.scene.start("TileRushScene", { callbacks, config });

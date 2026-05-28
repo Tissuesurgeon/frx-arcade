@@ -200,14 +200,10 @@ export default function PhaserTileRushClient({
           center={
             <div
               ref={containerRef}
-              className="relative h-full min-h-[360px] w-full overflow-hidden rounded-xl border border-white/10 bg-[#0a0a12]"
+              className="relative h-full min-h-[360px] w-full overflow-hidden rounded-xl"
             />
           }
-          bottom={
-            <p className="pb-1 text-center text-[11px] text-slate-500">
-              Tap selectable tiles · match triples · use Shuffle on the board
-            </p>
-          }
+          bottom={<span className="sr-only">Tray dock rendered in game canvas</span>}
         />
       </div>
       <GameEndModal
