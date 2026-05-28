@@ -17,6 +17,15 @@ import {
   shuffleBoardTileTypes,
 } from "@/lib/tile-rush/board";
 import type { GamePhase, Tile, TrayTile } from "@/lib/tile-rush/types";
+import {
+  getTrayMax,
+  MAX_ATTEMPTS,
+  ROUND_TIME_SECONDS,
+  SHUFFLES_PER_RUN,
+} from "@/lib/tile-rush/constants";
+import { addRunScoreToTotal, readTotalScore } from "@/lib/tile-rush/storage";
+import { tileLayoutTransition, MATCH_CLEAR_MS } from "@/lib/tile-rush/motion";
+import { useGameSound } from "@/lib/hooks/useGameSound";
 
 export type RunCompletePayload = {
   attemptIndex: number;
