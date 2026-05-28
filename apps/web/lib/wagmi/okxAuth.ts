@@ -1,10 +1,14 @@
 import { type EIP1193Provider } from "viem";
 import { XLAYER_CHAIN_ID } from "@frx/shared";
-import { connect, getAccount, signMessage } from "wagmi/actions";
+import { connect, disconnect, getAccount, signMessage } from "wagmi/actions";
 import { okxWalletConnector, wagmiConfig, xLayer } from "./config";
 import {
+  clearActiveOkxProvider,
+  clearWalletManuallyDisconnected,
   getActiveOkxProvider,
   getOkxProviderCandidates,
+  isWalletManuallyDisconnected,
+  markWalletManuallyDisconnected,
   setActiveOkxProvider,
 } from "./okx";
 
@@ -39,6 +43,8 @@ function rawRequest(
 
 /** Prompt OKX connect — uses eth_requestAccounts (popup #1). Remembers which provider worked. */
 export async function requestOkxAccounts(): Promise<`0x${string}`> {
+  clearWalletManuallyDisconnected();
+
   return withWalletLock(async () => {
     const candidates = getOkxProviderCandidates();
     if (candidates.length === 0) {
@@ -71,8 +77,10 @@ export async function requestOkxAccounts(): Promise<`0x${string}`> {
   });
 }
 
-/** Read authorized accounts without prompting (after connect). */
+/** Read authorized accounts without prompting (skipped after manual disconnect). */
 export async function readOkxAccounts(): Promise<`0x${string}` | undefined> {
+  if (isWalletManuallyDisconnected()) return undefined;
+
   const provider = getActiveOkxProvider() ?? getOkxProviderCandidates()[0];
   if (!provider) return undefined;
 
@@ -82,6 +90,34 @@ export async function readOkxAccounts(): Promise<`0x${string}` | undefined> {
     })) as string[];
     return accounts[0] ? (accounts[0] as `0x${string}`) : undefined;
   });
+}
+
+async function revokeOkxSiteAccess(): Promise<void> {
+  for (const provider of getOkxProviderCandidates()) {
+    try {
+      await rawRequest(provider, {
+        method: "wallet_revokePermissions",
+        params: [{ eth_accounts: {} }],
+      });
+    } catch {
+      // OKX versions without EIP-2255 revoke — user can disconnect site in extension
+    }
+  }
+}
+
+/** Full disconnect: app state, wagmi, OKX site permission, active provider. */
+export async function disconnectOkxWallet(): Promise<void> {
+  markWalletManuallyDisconnected();
+  clearActiveOkxProvider();
+  walletRequestChain = Promise.resolve();
+
+  await revokeOkxSiteAccess().catch(() => {});
+
+  try {
+    disconnect(wagmiConfig);
+  } catch {
+    // wagmi may already be disconnected
+  }
 }
 
 /** Wagmi sync only AFTER sign-in — never during connect/sign (steals OKX popup slot). */

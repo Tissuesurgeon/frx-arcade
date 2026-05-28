@@ -1,4 +1,5 @@
 import {
+  disconnectOkxWallet,
   readOkxAccounts,
   requestOkxAccounts,
   sendOkxTransaction,
@@ -15,6 +16,7 @@ export async function signWalletMessage(
 }
 
 export {
+  disconnectOkxWallet,
   readOkxAccounts,
   requestOkxAccounts,
   sendOkxTransaction,

@@ -12,7 +12,7 @@ export function WalletDropdown() {
   const [mounted, setMounted] = useState(false);
   const { creditBalance, token } = useSessionStore();
   const { setConnectOpen, setDepositOpen, setWithdrawOpen } = useUIStore();
-  const { signOut, isSignedIn, wallet } = useWalletAuth();
+  const { signOut, isSignedIn, isWalletLinked, wallet, address } = useWalletAuth();
 
   const { data } = useQuery({
     queryKey: ["credits", token],
@@ -33,9 +33,10 @@ export function WalletDropdown() {
     }
   }, [data?.balance]);
 
-  const connected = mounted && isSignedIn;
-  const walletLabel = connected && wallet
-    ? truncateAddress(wallet)
+  const walletConnected = mounted && isWalletLinked;
+  const signedIn = mounted && isSignedIn && !!token;
+  const walletLabel = walletConnected
+    ? truncateAddress(wallet ?? address ?? "")
     : "Connect";
   const balanceLabel =
     mounted && token ? creditBalance.toLocaleString() : "0";
@@ -67,7 +68,7 @@ export function WalletDropdown() {
             className="z-50 min-w-[180px] rounded-xl border border-white/10 bg-slate-950 p-1 shadow-xl"
             sideOffset={8}
           >
-            {!mounted || !connected || !token ? (
+            {!walletConnected ? (
               <DropdownMenu.Item
                 className="cursor-pointer rounded-lg px-3 py-2 text-sm text-white outline-none hover:bg-white/10"
                 onSelect={() => setConnectOpen(true)}
@@ -76,18 +77,29 @@ export function WalletDropdown() {
               </DropdownMenu.Item>
             ) : (
               <>
-                <DropdownMenu.Item
-                  className="cursor-pointer rounded-lg px-3 py-2 text-sm text-white outline-none hover:bg-white/10"
-                  onSelect={() => setDepositOpen(true)}
-                >
-                  Swap OKB → FRX
-                </DropdownMenu.Item>
-                <DropdownMenu.Item
-                  className="cursor-pointer rounded-lg px-3 py-2 text-sm text-white outline-none hover:bg-white/10"
-                  onSelect={() => setWithdrawOpen(true)}
-                >
-                  Convert FRX → OKB
-                </DropdownMenu.Item>
+                {!signedIn ? (
+                  <DropdownMenu.Item
+                    className="cursor-pointer rounded-lg px-3 py-2 text-sm text-violet-200 outline-none hover:bg-white/10"
+                    onSelect={() => setConnectOpen(true)}
+                  >
+                    Finish sign-in
+                  </DropdownMenu.Item>
+                ) : (
+                  <>
+                    <DropdownMenu.Item
+                      className="cursor-pointer rounded-lg px-3 py-2 text-sm text-white outline-none hover:bg-white/10"
+                      onSelect={() => setDepositOpen(true)}
+                    >
+                      Swap OKB → FRX
+                    </DropdownMenu.Item>
+                    <DropdownMenu.Item
+                      className="cursor-pointer rounded-lg px-3 py-2 text-sm text-white outline-none hover:bg-white/10"
+                      onSelect={() => setWithdrawOpen(true)}
+                    >
+                      Convert FRX → OKB
+                    </DropdownMenu.Item>
+                  </>
+                )}
                 <DropdownMenu.Item
                   className="cursor-pointer rounded-lg px-3 py-2 text-sm text-red-300 outline-none hover:bg-white/10"
                   onSelect={() => void signOut()}

@@ -146,7 +146,9 @@ export function WalletConnectModal() {
                     <p className="rounded-lg border border-cyan-500/20 bg-cyan-950/30 px-3 py-2 text-xs text-cyan-100">
                       OKX uses <strong>two separate popups</strong>: first to connect,
                       then a second one to sign in. After connecting, you must click
-                      &quot;Approve sign-in message&quot; below.
+                      &quot;Approve sign-in message&quot; below. To switch OKX accounts,
+                      Disconnect first, change account in the OKX extension, then connect
+                      again.
                     </p>
                     <button
                     type="button"

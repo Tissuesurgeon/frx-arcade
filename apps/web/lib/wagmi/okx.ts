@@ -1,5 +1,7 @@
 import type { EIP1193Provider } from "viem";
 
+const DISCONNECT_FLAG_KEY = "frx-wallet-disconnected";
+
 type OkxInjectedProvider = EIP1193Provider & {
   isOkxWallet?: boolean;
   isOKExWallet?: boolean;
@@ -22,6 +24,22 @@ function isEip1193(p: unknown): p is EIP1193Provider {
     "request" in p &&
     typeof (p as EIP1193Provider).request === "function"
   );
+}
+
+/** User clicked Disconnect — do not auto-relink from eth_accounts until Connect. */
+export function isWalletManuallyDisconnected(): boolean {
+  if (typeof window === "undefined") return false;
+  return window.localStorage.getItem(DISCONNECT_FLAG_KEY) === "1";
+}
+
+export function markWalletManuallyDisconnected(): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(DISCONNECT_FLAG_KEY, "1");
+}
+
+export function clearWalletManuallyDisconnected(): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(DISCONNECT_FLAG_KEY);
 }
 
 /** All OKX EVM provider objects, most likely first. */
@@ -57,7 +75,6 @@ export function getOkxProviderCandidates(win?: Window): EIP1193Provider[] {
   return out;
 }
 
-/** Provider used for the last successful OKX connect — sign must use the same object. */
 let activeOkxProvider: EIP1193Provider | null = null;
 
 export function getActiveOkxProvider(): EIP1193Provider | undefined {
@@ -69,6 +86,10 @@ export function getActiveOkxProvider(): EIP1193Provider | undefined {
 
 export function setActiveOkxProvider(provider: EIP1193Provider): void {
   activeOkxProvider = provider;
+}
+
+export function clearActiveOkxProvider(): void {
+  activeOkxProvider = null;
 }
 
 export function getOkxWalletProvider(win?: Window): EIP1193Provider | undefined {
@@ -105,7 +126,7 @@ export function parseWalletConnectError(err: unknown): string {
   }
 
   if (/connector already connected/i.test(msg)) {
-    return "Wallet already linked in OKX — click Approve sign-in message (step 2).";
+    return "Wallet already linked in OKX — click Approve sign-in message (step 2), or Disconnect first to switch accounts.";
   }
 
   if (/failed to fetch|cannot reach api|networkerror/i.test(msg)) {
