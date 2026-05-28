@@ -66,6 +66,7 @@ export default function PhaserTileRushClient({
   tournamentType,
 }: PhaserTileRushClientProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const trayRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<TileRushGameHandle | null>(null);
   const finalizedAttemptRef = useRef<number | null>(null);
   const runStartedAtRef = useRef<number>(Date.now());
@@ -84,6 +85,25 @@ export default function PhaserTileRushClient({
   const { muted, play, toggleMute } = useGameSound();
   const trayMax = useMemo(() => getTrayMax(score), [score]);
   const boardDisabled = phase !== "playing";
+
+  const getTrayTarget = useCallback((slotIndex: number) => {
+    const canvas = containerRef.current;
+    const trayRoot = trayRef.current;
+    if (!canvas || !trayRoot) return null;
+
+    const slot = trayRoot.querySelector<HTMLElement>(
+      `[data-tray-slot="${slotIndex}"]`
+    );
+    if (!slot) return null;
+
+    const canvasRect = canvas.getBoundingClientRect();
+    const slotRect = slot.getBoundingClientRect();
+
+    return {
+      x: slotRect.left + slotRect.width / 2 - canvasRect.left,
+      y: slotRect.top + slotRect.height / 2 - canvasRect.top,
+    };
+  }, []);
 
   const recordRunIfNeeded = useCallback(
     (runScore: number, endPhase: GamePhase, attempt: number) => {
@@ -151,6 +171,7 @@ export default function PhaserTileRushClient({
           onTrayChange: setTray,
           onShufflesLeftChange: setShufflesLeft,
           onSound: (id) => play(id),
+          getTrayTarget,
         },
         {
           initialAttempt: attempt,
@@ -172,6 +193,7 @@ export default function PhaserTileRushClient({
     persistLifetimeScore,
     play,
     recordRunIfNeeded,
+    getTrayTarget,
   ]);
 
   useEffect(() => {
@@ -217,7 +239,10 @@ export default function PhaserTileRushClient({
             />
           }
           bottom={
-            <div className="mx-auto flex w-full max-w-5xl items-end gap-2 sm:gap-3">
+            <div
+              ref={trayRef}
+              className="mx-auto flex w-full max-w-5xl items-end gap-2 sm:gap-3"
+            >
               <Tray tray={tray} maxSlots={trayMax} compact />
               <ActionBar
                 shufflesLeft={shufflesLeft}

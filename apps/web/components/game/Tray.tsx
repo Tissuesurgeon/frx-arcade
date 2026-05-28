@@ -16,7 +16,6 @@ type GameTrayProps = {
   compact?: boolean;
 };
 
-/** Fixed column count so tray width never shifts (9 early-game cap). */
 const DISPLAY_SLOTS = TRAY_MAX_EASY;
 
 export function Tray({ tray, maxSlots, compact = false }: GameTrayProps) {
@@ -25,8 +24,8 @@ export function Tray({ tray, maxSlots, compact = false }: GameTrayProps) {
   const danger = tray.length >= warnThreshold;
 
   const tileClass = compact
-    ? "flex h-full w-full items-center justify-center rounded-md border border-solid border-b-[2px] font-mono text-xs font-bold tabular-nums leading-none sm:rounded-lg sm:text-xs"
-    : "flex h-full w-full items-center justify-center rounded-lg border border-solid border-b-[3px] font-mono text-sm font-bold tabular-nums leading-none sm:text-base";
+    ? "flex h-full w-full items-center justify-center rounded-lg border font-mono text-xs font-bold tabular-nums leading-none shadow-md sm:text-xs"
+    : "flex h-full w-full items-center justify-center rounded-xl border font-mono text-sm font-bold tabular-nums leading-none shadow-lg sm:text-base";
 
   return (
     <div className="min-w-0 flex-1">
@@ -35,37 +34,48 @@ export function Tray({ tray, maxSlots, compact = false }: GameTrayProps) {
           danger
             ? {
                 boxShadow: [
-                  "0 0 0 1px rgba(248, 113, 113, 0.45)",
-                  "0 0 22px 4px rgba(239, 68, 68, 0.35)",
-                  "0 0 0 1px rgba(248, 113, 113, 0.45)",
+                  "0 0 0 1px rgba(255, 70, 85, 0.55)",
+                  "0 0 28px 6px rgba(255, 70, 85, 0.35)",
+                  "0 0 0 1px rgba(255, 70, 85, 0.55)",
                 ],
               }
-            : undefined
+            : {
+                boxShadow: "0 0 0 1px rgba(38, 208, 255, 0.12)",
+              }
         }
         transition={
           danger
-            ? { duration: 1.2, repeat: Infinity, ease: "easeInOut" }
-            : { duration: 0.2 }
+            ? { duration: 1.1, repeat: Infinity, ease: "easeInOut" }
+            : { duration: 0.25 }
         }
         className={
           compact
-            ? `rounded-xl px-0 py-0 sm:border sm:px-3 sm:py-2.5 ${
+            ? `relative overflow-hidden rounded-xl px-2 py-2 sm:px-3 sm:py-2.5 ${
                 danger
-                  ? "sm:border-red-500/45 sm:bg-red-950/20"
-                  : "sm:border-white/10 sm:bg-white/[0.04]"
+                  ? "border border-[#ff4655]/50 bg-[#1a0a0c]/90"
+                  : "border border-[#26d0ff]/20 bg-[#0f1923]/95"
               }`
-            : `rounded-2xl border p-3 sm:rounded-3xl sm:p-4 ${
+            : `relative overflow-hidden rounded-2xl border p-3 sm:rounded-3xl sm:p-4 ${
                 danger
-                  ? "border-red-500/50 bg-red-950/25"
-                  : "border-white/10 bg-white/5"
+                  ? "border-[#ff4655]/55 bg-[#1a0a0c]/90"
+                  : "border-[#26d0ff]/25 bg-[#0f1923]/95"
               }`
         }
       >
-        <p className="mb-1.5 hidden text-xs font-semibold tabular-nums text-slate-400 sm:mb-2 sm:block">
-          Tray · {tray.length}/{maxSlots}
-        </p>
-        <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:hidden">
+        <div
+          className="pointer-events-none absolute left-0 top-0 h-[2px] w-16 bg-gradient-to-r from-[#ff4655] to-transparent"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute bottom-0 right-0 h-[2px] w-16 bg-gradient-to-l from-[#26d0ff] to-transparent"
+          aria-hidden
+        />
+
+        <p className="mb-1.5 hidden font-mono text-[10px] font-semibold uppercase tracking-[0.2em] text-[#8b9bb4] sm:mb-2 sm:block">
           Collection · {tray.length}/{maxSlots}
+        </p>
+        <p className="mb-1.5 font-mono text-[9px] font-semibold uppercase tracking-[0.18em] text-[#8b9bb4] sm:hidden">
+          Tray · {tray.length}/{maxSlots}
         </p>
 
         <div
@@ -82,7 +92,8 @@ export function Tray({ tray, maxSlots, compact = false }: GameTrayProps) {
                 return (
                   <div
                     key={`empty-${slotIndex}`}
-                    className="aspect-[4/5] max-h-full w-full max-w-[56px] place-self-center rounded-md border border-dashed border-white/15 bg-black/25 sm:max-w-[52px] sm:rounded-lg"
+                    data-tray-slot={slotIndex}
+                    className="aspect-[4/5] max-h-full w-full max-w-[56px] place-self-center rounded-lg border border-dashed border-[#26d0ff]/20 bg-black/40 shadow-inner sm:max-w-[52px]"
                     style={{ gridColumn: slotIndex + 1, gridRow: 1 }}
                     aria-hidden
                   />
@@ -93,16 +104,19 @@ export function Tray({ tray, maxSlots, compact = false }: GameTrayProps) {
               return (
                 <motion.div
                   key={tile.id}
+                  data-tray-slot={slotIndex}
                   layout="position"
                   layoutId={`tile-rush-${tile.id}`}
-                  initial={false}
+                  initial={{ scale: 0.6, opacity: 0 }}
                   animate={{ scale: 1, opacity: 1 }}
                   exit={
                     reduceMotion
-                      ? { opacity: 0, transition: { duration: 0.12 } }
+                      ? { opacity: 0, scale: 0.8, transition: { duration: 0.12 } }
                       : tileMatchExit
                   }
                   transition={tileLayoutTransition}
+                  whileHover={{ scale: 1.06, y: -2 }}
+                  whileTap={{ scale: 0.94 }}
                   className={`${tileClass} aspect-[4/5] max-h-full w-full max-w-[56px] place-self-center sm:max-w-[52px]`}
                   style={{
                     gridColumn: slotIndex + 1,
@@ -111,7 +125,7 @@ export function Tray({ tray, maxSlots, compact = false }: GameTrayProps) {
                     borderColor: paint.borderColor,
                     borderBottomColor: paint.borderBottomColor,
                     color: paint.color,
-                    boxShadow: paint.boxShadow,
+                    boxShadow: `${paint.boxShadow}, 0 0 12px rgba(38, 208, 255, 0.15)`,
                   }}
                   aria-hidden
                 >
@@ -126,9 +140,9 @@ export function Tray({ tray, maxSlots, compact = false }: GameTrayProps) {
 
         <div className="mt-1 min-h-[16px] sm:mt-2 sm:min-h-[20px]">
           {danger ? (
-            <p className="flex items-center justify-center gap-1 text-center text-[11px] font-semibold text-red-400 sm:text-xs">
+            <p className="flex items-center justify-center gap-1 text-center font-mono text-[10px] font-semibold uppercase tracking-wide text-[#ff4655] sm:text-xs">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              Tray almost full!
+              Tray critical
             </p>
           ) : null}
         </div>

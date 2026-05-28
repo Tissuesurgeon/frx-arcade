@@ -26,19 +26,26 @@ function formatTime(totalSeconds: number): string {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }
 
-function StatChip({
+function HudChip({
   icon: Icon,
   iconClass,
+  label,
   children,
 }: {
   icon: ComponentType<{ className?: string; strokeWidth?: number }>;
   iconClass: string;
+  label: string;
   children: ReactNode;
 }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-0.5 text-xs font-semibold tabular-nums text-slate-300">
-      <Icon className={`h-3 w-3 shrink-0 ${iconClass}`} strokeWidth={1.75} />
-      {children}
+    <span className="inline-flex items-center gap-1.5 rounded border border-[#26d0ff]/15 bg-[#0f1923]/80 px-2 py-0.5">
+      <Icon className={`h-3 w-3 shrink-0 ${iconClass}`} strokeWidth={2} />
+      <span className="font-mono text-[9px] uppercase tracking-wider text-[#8b9bb4]">
+        {label}
+      </span>
+      <span className="font-mono text-xs font-bold tabular-nums text-[#ece8e1]">
+        {children}
+      </span>
     </span>
   );
 }
@@ -69,102 +76,117 @@ export function GameHeader({
     tournamentType === "DAILY" && maxRewardPool > (rewardPoolCredits ?? 0);
   const showPlayers = playerCount !== undefined;
 
+  const hudShell =
+    "relative overflow-hidden border border-[#ff4655]/30 bg-[#0a0e14]/90 shadow-[0_4px_24px_rgba(0,0,0,0.45)] backdrop-blur-md";
+
   return (
     <>
-      {/* Mobile: compact floating HUD (reference: classic tile-match apps) */}
+      {/* Mobile HUD */}
       <div className="sm:hidden">
-        <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-black/50 px-2.5 py-2 shadow-lg backdrop-blur-md">
-          <div className="flex shrink-0 flex-col items-center rounded-xl bg-white/5 px-2.5 py-1">
-            <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-500">
-              Run
-            </span>
-            <span className="text-xs font-bold tabular-nums text-white">
-              {attempt}/{maxAttempts}
-            </span>
-          </div>
+        <div className={`${hudShell} rounded-lg px-2.5 py-2`}>
+          <div className="pointer-events-none absolute left-0 top-0 h-full w-[3px] bg-[#ff4655]" />
+          <div className="pointer-events-none absolute right-0 top-0 h-[2px] w-20 bg-gradient-to-l from-[#26d0ff] to-transparent" />
 
-          <div className="flex min-w-0 flex-1 flex-col items-center">
-            <span className="text-[9px] font-semibold uppercase tracking-wide text-emerald-400/90">
-              Matches
-            </span>
-            <motion.p
-              key={score}
-              className="text-2xl font-black tabular-nums leading-none text-white"
-              initial={reduceMotion ? false : { scale: 1.08 }}
-              animate={{ scale: 1 }}
-              transition={
-                reduceMotion
-                  ? { duration: 0 }
-                  : { type: "spring", stiffness: 480, damping: 28 }
-              }
-            >
-              {scoreStr}
-            </motion.p>
-            {tilesLeft !== undefined ? (
-              <span className="mt-0.5 text-[10px] font-medium tabular-nums text-violet-300/90">
-                {tilesLeft} tiles left
+          <div className="flex items-center gap-2 pl-1">
+            <div className="flex shrink-0 flex-col border-r border-[#26d0ff]/15 pr-2">
+              <span className="font-mono text-[8px] font-bold uppercase tracking-[0.22em] text-[#ff4655]">
+                Run
               </span>
-            ) : null}
-          </div>
-
-          <div className="flex shrink-0 items-center gap-1.5">
-            <div
-              className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 ${
-                urgent
-                  ? "bg-red-500/20 ring-1 ring-red-400/50"
-                  : "bg-white/5 ring-1 ring-white/10"
-              }`}
-            >
-              <Clock
-                className={`h-3.5 w-3.5 ${urgent ? "text-red-300" : "text-cyan-300"}`}
-              />
-              <span
-                className={`font-mono text-sm font-bold tabular-nums ${
-                  urgent ? "text-red-200" : "text-white"
-                }`}
-              >
-                {formatTime(secondsRemaining)}
+              <span className="font-mono text-sm font-bold tabular-nums text-[#ece8e1]">
+                {attempt}/{maxAttempts}
               </span>
             </div>
-            {onToggleSound ? (
-              <button
-                type="button"
-                onClick={onToggleSound}
-                aria-label={soundMuted ? "Unmute game sounds" : "Mute game sounds"}
-                className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/5 ring-1 ring-white/10 text-slate-300"
+
+            <div className="flex min-w-0 flex-1 flex-col items-center">
+              <span className="font-mono text-[8px] font-bold uppercase tracking-[0.22em] text-[#26d0ff]">
+                Matches
+              </span>
+              <motion.p
+                key={score}
+                className="text-2xl font-black tabular-nums leading-none text-[#ece8e1]"
+                initial={reduceMotion ? false : { scale: 1.12 }}
+                animate={{ scale: 1 }}
+                transition={
+                  reduceMotion
+                    ? { duration: 0 }
+                    : { type: "spring", stiffness: 520, damping: 26 }
+                }
               >
-                {soundMuted ? (
-                  <VolumeX className="h-4 w-4" strokeWidth={1.75} />
-                ) : (
-                  <Volume2 className="h-4 w-4" strokeWidth={1.75} />
-                )}
-              </button>
-            ) : null}
+                {scoreStr}
+              </motion.p>
+              {tilesLeft !== undefined ? (
+                <span className="mt-0.5 font-mono text-[9px] font-semibold tabular-nums text-[#8b9bb4]">
+                  {tilesLeft} remaining
+                </span>
+              ) : null}
+            </div>
+
+            <div className="flex shrink-0 items-center gap-1.5">
+              <div
+                className={`flex items-center gap-1 rounded border px-2 py-1.5 ${
+                  urgent
+                    ? "border-[#ff4655]/60 bg-[#ff4655]/15"
+                    : "border-[#26d0ff]/25 bg-[#0f1923]/80"
+                }`}
+              >
+                <Clock
+                  className={`h-3.5 w-3.5 ${urgent ? "text-[#ff4655]" : "text-[#26d0ff]"}`}
+                />
+                <span
+                  className={`font-mono text-sm font-bold tabular-nums ${
+                    urgent ? "text-[#ff4655]" : "text-[#ece8e1]"
+                  }`}
+                >
+                  {formatTime(secondsRemaining)}
+                </span>
+              </div>
+              {onToggleSound ? (
+                <button
+                  type="button"
+                  onClick={onToggleSound}
+                  aria-label={soundMuted ? "Unmute game sounds" : "Mute game sounds"}
+                  className="flex h-9 w-9 items-center justify-center rounded border border-[#26d0ff]/20 bg-[#0f1923]/80 text-[#8b9bb4] transition hover:border-[#26d0ff]/40 hover:text-[#26d0ff]"
+                >
+                  {soundMuted ? (
+                    <VolumeX className="h-4 w-4" strokeWidth={2} />
+                  ) : (
+                    <Volume2 className="h-4 w-4" strokeWidth={2} />
+                  )}
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Desktop / tablet */}
-      <div className="hidden rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 sm:block">
-        <div className="flex items-center gap-3">
-          <div className="min-w-0 shrink-0">
-            <p className="text-xs text-slate-400">Attempt</p>
-            <p className="text-sm font-bold tabular-nums text-white">
+      {/* Desktop HUD */}
+      <div className={`${hudShell} hidden rounded-lg px-4 py-2.5 sm:block`}>
+        <div className="pointer-events-none absolute left-0 top-0 h-full w-[3px] bg-[#ff4655]" />
+        <div className="pointer-events-none absolute right-0 top-0 h-[2px] w-28 bg-gradient-to-l from-[#26d0ff] to-transparent" />
+
+        <div className="flex items-center gap-4 pl-1">
+          <div className="min-w-0 shrink-0 border-r border-[#26d0ff]/15 pr-4">
+            <p className="font-mono text-[9px] font-bold uppercase tracking-[0.22em] text-[#ff4655]">
+              Attempt
+            </p>
+            <p className="font-mono text-lg font-bold tabular-nums text-[#ece8e1]">
               {attempt}/{maxAttempts}
             </p>
           </div>
 
           <div className="flex min-w-0 flex-1 flex-col items-center">
-            <p className="text-xs text-slate-400">Matches</p>
+            <p className="font-mono text-[9px] font-bold uppercase tracking-[0.22em] text-[#26d0ff]">
+              Matches
+            </p>
             <motion.p
               key={score}
-              className="text-3xl font-bold tabular-nums leading-none text-white"
-              initial={reduceMotion ? false : { scale: 1.06 }}
+              className="text-4xl font-black tabular-nums leading-none text-[#ece8e1]"
+              initial={reduceMotion ? false : { scale: 1.08 }}
               animate={{ scale: 1 }}
               transition={
                 reduceMotion
                   ? { duration: 0 }
-                  : { type: "spring", stiffness: 480, damping: 28 }
+                  : { type: "spring", stiffness: 520, damping: 26 }
               }
             >
               {scoreStr}
@@ -172,14 +194,14 @@ export function GameHeader({
           </div>
 
           <div
-            className={`flex shrink-0 items-center gap-1 rounded-lg border px-2 py-1 ${
+            className={`flex shrink-0 items-center gap-1.5 rounded border px-3 py-1.5 ${
               urgent
-                ? "border-red-500/40 bg-red-950/30 text-red-300"
-                : "border-white/10 bg-black/25 text-white"
+                ? "border-[#ff4655]/60 bg-[#ff4655]/12 text-[#ff4655]"
+                : "border-[#26d0ff]/25 bg-[#0f1923]/80 text-[#ece8e1]"
             }`}
           >
-            <Clock className="h-3.5 w-3.5 shrink-0 opacity-80" />
-            <span className="font-mono text-sm font-semibold tabular-nums">
+            <Clock className="h-4 w-4 shrink-0 opacity-90" />
+            <span className="font-mono text-base font-bold tabular-nums">
               {formatTime(secondsRemaining)}
             </span>
           </div>
@@ -189,12 +211,12 @@ export function GameHeader({
               type="button"
               onClick={onToggleSound}
               aria-label={soundMuted ? "Unmute game sounds" : "Mute game sounds"}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-black/25 text-slate-300 transition hover:border-cyan-500/30 hover:text-cyan-200"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded border border-[#26d0ff]/20 bg-[#0f1923]/80 text-[#8b9bb4] transition hover:border-[#26d0ff]/40 hover:text-[#26d0ff]"
             >
               {soundMuted ? (
-                <VolumeX className="h-3.5 w-3.5" strokeWidth={1.75} />
+                <VolumeX className="h-4 w-4" strokeWidth={2} />
               ) : (
-                <Volume2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+                <Volume2 className="h-4 w-4" strokeWidth={2} />
               )}
             </button>
           ) : null}
@@ -204,27 +226,27 @@ export function GameHeader({
           tilesLeft !== undefined ||
           showPool ||
           showPlayers) && (
-          <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+          <div className="mt-2.5 flex flex-wrap items-center justify-center gap-2 border-t border-[#26d0ff]/10 pt-2">
             {totalScore !== undefined ? (
-              <StatChip icon={Trophy} iconClass="text-amber-400">
-                {totalScore.toLocaleString()} total
-              </StatChip>
+              <HudChip icon={Trophy} iconClass="text-[#ffc84d]" label="Total">
+                {totalScore.toLocaleString()}
+              </HudChip>
             ) : null}
             {tilesLeft !== undefined ? (
-              <StatChip icon={Layers} iconClass="text-violet-400">
-                {tilesLeft.toLocaleString()} left
-              </StatChip>
+              <HudChip icon={Layers} iconClass="text-[#66c0f4]" label="Board">
+                {tilesLeft.toLocaleString()}
+              </HudChip>
             ) : null}
             {showPool ? (
-              <StatChip icon={Coins} iconClass="text-amber-400">
+              <HudChip icon={Coins} iconClass="text-[#ffc84d]" label="Pool">
                 {rewardPoolCredits!.toLocaleString()}
                 {showMax ? ` / ${maxRewardPool.toLocaleString()}` : ""} FRX
-              </StatChip>
+              </HudChip>
             ) : null}
             {showPlayers ? (
-              <StatChip icon={Users} iconClass="text-cyan-400">
+              <HudChip icon={Users} iconClass="text-[#26d0ff]" label="Players">
                 {playerCount}/{maxPlayers}
-              </StatChip>
+              </HudChip>
             ) : null}
           </div>
         )}

@@ -1,7 +1,6 @@
 import { TILE_FACE_COUNT } from "./constants";
 import { tileMatchKey } from "./tile-styles";
 
-/** HSL (h 0-360, s/l 0-100) → 0xRRGGBB for Phaser fills. */
 export function hslToHex(h: number, s: number, l: number): number {
   const sn = s / 100;
   const ln = l / 100;
@@ -39,17 +38,21 @@ export function hslToHex(h: number, s: number, l: number): number {
 export type PhaserTileColors = {
   fillTop: number;
   fill: number;
+  fillDeep: number;
   stroke: number;
   text: number;
+  accent: number;
 };
 
 export function phaserTileColors(type: number): PhaserTileColors {
   const key = tileMatchKey(type);
   const h = (key * 360) / TILE_FACE_COUNT;
   return {
-    fillTop: hslToHex(h, 82, 91),
-    fill: hslToHex(h, 68, 76),
-    stroke: hslToHex(h, 55, 42),
-    text: hslToHex(h, 42, 16),
+    fillTop: hslToHex(h, 78, 88),
+    fill: hslToHex(h, 65, 72),
+    fillDeep: hslToHex(h, 55, 48),
+    stroke: hslToHex(h, 50, 38),
+    text: hslToHex(h, 35, 18),
+    accent: hslToHex(h, 70, 55),
   };
 }

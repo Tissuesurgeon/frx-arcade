@@ -1,24 +1,41 @@
-/** Visual theme aligned with FRX web app (indigo / slate, not casino felt). */
+/** Valorant + Steam esports + mobile puzzle palette */
 export const THEME = {
-  bgTop: 0x0b0a14,
-  bgBottom: 0x12101f,
-  stageMobileTop: 0x1e4d3a,
-  stageMobileBottom: 0x1a3d2e,
-  stageDesktop: 0x0f0d18,
-  stageBorder: 0xffffff,
-  stageBorderAlpha: 0.1,
-  accent: 0x22d3ee,
-  accentGlow: 0x67e8f9,
-  text: 0xf8fafc,
+  bgDeep: 0x0a0e14,
+  bgMid: 0x0f1923,
+  bgPanel: 0x1a2332,
+  valorantRed: 0xff4655,
+  valorantRedDim: 0xcc3642,
+  hudCyan: 0x26d0ff,
+  hudCyanDim: 0x1a9fbf,
+  steamBlue: 0x66c0f4,
+  accentGold: 0xffc84d,
+  text: 0xece8e1,
+  textMuted: 0x8b9bb4,
   shadow: 0x000000,
+  glowSelectable: 0x26d0ff,
+  glowMatch: 0xff4655,
+  boardVignette: 0x000000,
+  gridLine: 0xffffff,
 } as const;
 
 export const FONT = {
-  family: '"Segoe UI", system-ui, -apple-system, sans-serif',
-  mono: '"JetBrains Mono", ui-monospace, monospace',
+  display: '"DIN Next", "Rajdhani", "Segoe UI", system-ui, sans-serif',
+  mono: '"JetBrains Mono", "Roboto Mono", ui-monospace, monospace',
 } as const;
 
 export const MOBILE_BREAK = 640;
 export const TILE_ASPECT = 0.82;
-/** Match apps/web MOBILE_TILE_VISUAL_SCALE */
-export const MOBILE_TILE_SCALE = 0.9;
+export const MOBILE_TILE_SCALE = 0.92;
+
+/** Layer stack depth — stronger offset = more cognitive pressure */
+export const LAYER_OFFSET_X = -4.5;
+export const LAYER_OFFSET_Y = -5.5;
+export const MOBILE_LAYER_OFFSET_X = -3;
+export const MOBILE_LAYER_OFFSET_Y = -3.8;
+
+export const EASE = {
+  fly: "Back.easeOut",
+  flyDuration: 420,
+  matchShrink: 280,
+  hover: "Sine.easeInOut",
+} as const;

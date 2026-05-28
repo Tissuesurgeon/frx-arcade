@@ -4,21 +4,20 @@ import { phaserTileColors } from "../logic/phaser-colors";
 import { tileLabel, tileMatchKey } from "../logic/tile-styles";
 import { FONT, THEME } from "./theme";
 
-const TEXTURE_PREFIX = "frx-tile-v2";
+const TEXTURE_PREFIX = "frx-tile-v3";
 
 export function tileTextureKey(faceKey: number, w: number, h: number): string {
   return `${TEXTURE_PREFIX}-${faceKey}-${Math.round(w)}x${Math.round(h)}`;
 }
 
-/** Pastel gradient tiles — matches React `tileFacePaint` styling. */
 export function ensureTileTextures(
   scene: Phaser.Scene,
   tileW: number,
   tileH: number
 ): void {
-  const w = Math.max(28, Math.round(tileW));
-  const h = Math.max(34, Math.round(tileH));
-  const radius = Math.min(10, w * 0.2);
+  const w = Math.max(30, Math.round(tileW));
+  const h = Math.max(36, Math.round(tileH));
+  const radius = Math.max(8, Math.min(12, w * 0.22));
 
   for (let face = 0; face < TILE_FACE_COUNT; face++) {
     const key = tileTextureKey(face, w, h);
@@ -26,79 +25,111 @@ export function ensureTileTextures(
 
     const g = scene.make.graphics({ x: 0, y: 0 });
     g.setVisible(false);
-    const colors = phaserTileColors(face);
+    const c = phaserTileColors(face);
 
-    // Drop shadow (matches React box-shadow)
-    g.fillStyle(THEME.shadow, 0.35);
+    g.fillStyle(THEME.shadow, 0.5);
+    g.fillRoundedRect(5, 7, w, h, radius);
+    g.fillStyle(THEME.shadow, 0.25);
     g.fillRoundedRect(3, 5, w, h, radius);
 
-    // Bottom edge (3D lip)
-    g.fillStyle(colors.stroke, 0.85);
-    g.fillRoundedRect(0, h - 4, w, 4, { bl: radius, br: radius, tl: 0, tr: 0 });
+    g.fillStyle(c.stroke, 0.9);
+    g.fillRoundedRect(1, h - 5, w - 2, 5, { bl: radius, br: radius, tl: 0, tr: 0 });
 
-    // Body gradient: light top → mid bottom
-    g.fillStyle(colors.fill, 1);
-    g.fillGradientStyle(
-      colors.fillTop,
-      colors.fillTop,
-      colors.fill,
-      colors.fill,
-      1
-    );
-    g.fillRoundedRect(0, 0, w, h - 3, radius);
+    g.fillGradientStyle(c.fillTop, c.fillTop, c.fill, c.fillDeep, 1);
+    g.fillRoundedRect(0, 0, w, h - 4, radius);
 
-    // Border
-    g.lineStyle(1.5, colors.stroke, 0.55);
-    g.strokeRoundedRect(0.5, 0.5, w - 1, h - 4, radius);
+    g.lineStyle(1.5, c.stroke, 0.5);
+    g.strokeRoundedRect(1, 1, w - 2, h - 6, radius - 1);
 
-    // Top gloss
-    g.fillStyle(0xffffff, 0.28);
-    g.fillRoundedRect(3, 3, w - 6, h * 0.22, radius - 2);
+    g.fillStyle(0xffffff, 0.32);
+    g.fillRoundedRect(3, 3, w - 6, h * 0.2, radius - 2);
 
-    g.generateTexture(key, w + 4, h + 8);
+    const cx = w / 2;
+    const cy = h / 2 - 1;
+    const diskR = Math.min(w, h) * 0.26;
+    g.fillGradientStyle(c.accent, c.accent, c.fill, c.fillDeep, 1);
+    g.fillCircle(cx, cy, diskR);
+    g.lineStyle(2, 0xffffff, 0.35);
+    g.strokeCircle(cx, cy, diskR);
+
+    g.generateTexture(key, w + 8, h + 10);
     g.destroy();
   }
 }
 
-export function addTileSprite(
+export function createRichTile(
   scene: Phaser.Scene,
   type: number,
   tileW: number,
   tileH: number,
+  layer: number,
   selectable: boolean
 ): Phaser.GameObjects.Container {
   const face = tileMatchKey(type);
-  const key = tileTextureKey(face, tileW, tileH);
   ensureTileTextures(scene, tileW, tileH);
+  const key = tileTextureKey(face, tileW, tileH);
+  const colors = phaserTileColors(type);
 
   const container = scene.add.container(0, 0);
-  const img = scene.add.image(0, 0, key);
-  img.setOrigin(0.5, 0.5);
+  container.setData("tileW", tileW);
+  container.setData("tileH", tileH);
+  container.setData("layer", layer);
 
-  const colors = phaserTileColors(type);
+  const depthShadow = scene.add.graphics();
+  const ds = 2 + layer * 1.8;
+  depthShadow.fillStyle(THEME.shadow, 0.35 + layer * 0.04);
+  depthShadow.fillRoundedRect(-tileW / 2 + ds, -tileH / 2 + ds, tileW, tileH, 10);
+
+  const glow = scene.add.graphics();
+  glow.setBlendMode(Phaser.BlendModes.ADD);
+
+  const body = scene.add.image(0, 0, key);
+  body.setOrigin(0.5, 0.5);
+
   const label = scene.add.text(0, 0, tileLabel(type), {
     fontFamily: FONT.mono,
-    fontSize: `${Math.max(12, Math.floor(tileW * 0.36))}px`,
+    fontSize: `${Math.max(13, Math.floor(tileW * 0.38))}px`,
     color: `#${(colors.text & 0xffffff).toString(16).padStart(6, "0")}`,
     fontStyle: "bold",
+    stroke: "#00000055",
+    strokeThickness: 2,
   });
   label.setOrigin(0.5, 0.5);
 
-  container.add([img, label]);
+  container.add([depthShadow, glow, body, label]);
   container.setData("selectable", selectable);
-  container.setAlpha(selectable ? 1 : 0.42);
-  if (!selectable) {
-    container.setScale(0.97);
-  }
+  container.setData("glow", glow);
 
+  applyTileVisualState(container, selectable, false);
   return container;
 }
 
-export function setTileHighlight(
+export function applyTileVisualState(
   container: Phaser.GameObjects.Container,
-  active: boolean
+  selectable: boolean,
+  hovered: boolean
 ): void {
-  if (!(container.getData("selectable") as boolean)) return;
-  container.setScale(active ? 1.08 : 1);
-  container.setAlpha(active ? 1 : 1);
+  const glow = container.getData("glow") as Phaser.GameObjects.Graphics;
+  const tileW = (container.getData("tileW") as number) || 40;
+  const tileH = (container.getData("tileH") as number) || 48;
+  const layer = (container.getData("layer") as number) ?? 0;
+
+  if (!selectable) {
+    container.setAlpha(0.26 + Math.min(layer, 4) * 0.02);
+    container.setScale(0.93);
+    glow.clear();
+    return;
+  }
+
+  container.setAlpha(1);
+  container.setScale(hovered ? 1.1 : 1.05);
+
+  glow.clear();
+  const pad = hovered ? 6 : 4;
+  glow.lineStyle(hovered ? 3 : 2, THEME.glowSelectable, hovered ? 0.95 : 0.5);
+  glow.strokeRoundedRect(-tileW / 2 - pad, -tileH / 2 - pad, tileW + pad * 2, tileH + pad * 2, 14);
+  if (hovered) {
+    glow.fillStyle(THEME.glowSelectable, 0.14);
+    glow.fillRoundedRect(-tileW / 2 - pad, -tileH / 2 - pad, tileW + pad * 2, tileH + pad * 2, 14);
+  }
 }

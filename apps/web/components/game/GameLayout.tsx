@@ -34,13 +34,13 @@ export function GameLayout({ header, center, bottom }: GameLayoutProps) {
         }}
       />
 
-      {/* Mobile stage backdrop */}
+      {/* Mobile stage backdrop — esports arena */}
       <div
         className="pointer-events-none absolute inset-0 sm:hidden"
         aria-hidden
         style={{
           background:
-            "radial-gradient(ellipse 120% 80% at 50% 0%, hsl(230 45% 14%) 0%, hsl(235 40% 8%) 55%, hsl(240 35% 5%) 100%)",
+            "radial-gradient(ellipse 120% 80% at 50% 0%, #0f1923 0%, #0a0e14 55%, #06080c 100%)",
         }}
       />
 
@@ -55,7 +55,7 @@ export function GameLayout({ header, center, bottom }: GameLayoutProps) {
       </main>
 
       <footer className="relative z-[2] shrink-0 px-0 py-0 pb-[env(safe-area-inset-bottom,0px)] sm:border-t sm:border-white/10 sm:bg-frx-bg/80 sm:px-4 sm:py-3 sm:pb-[max(0.5rem,env(safe-area-inset-bottom))] lg:px-5">
-        <div className="sm:hidden rounded-t-[1.35rem] border border-b-0 border-white/10 bg-gradient-to-b from-slate-900/95 to-black px-3 py-2.5 shadow-[0_-10px_40px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+        <div className="sm:hidden rounded-t-xl border border-b-0 border-[#ff4655]/25 bg-gradient-to-b from-[#0f1923]/98 to-[#0a0e14] px-3 py-2.5 shadow-[0_-12px_48px_rgba(255,70,85,0.08)] backdrop-blur-xl">
           {bottom}
         </div>
         <div className="hidden sm:block">{bottom}</div>
