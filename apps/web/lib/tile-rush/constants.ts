@@ -36,20 +36,14 @@ export const GUEST_ROUND_TIME_SECONDS = 2 * 60;
 export const SHUFFLES_PER_RUN = 2;
 
 /** Enlarges tile faces on small screens (layout positions unchanged). */
-export const MOBILE_TILE_VISUAL_SCALE = 1.72;
-
-/** Minimum tile tap target in CSS pixels on mobile. */
-export const MOBILE_TILE_MIN_PX = 44;
+export const MOBILE_TILE_VISUAL_SCALE = 0.9;
 
 /** Mahjong-style tile width:height on mobile (taller faces). */
-export const MOBILE_TILE_ASPECT = 0.78;
+export const MOBILE_TILE_ASPECT = 0.82;
 
-/** Per-layer shift for stacked 3D look (percent of board). */
-export const MOBILE_LAYER_OFFSET_X_PCT = -0.38;
-export const MOBILE_LAYER_OFFSET_Y_PCT = -0.52;
-
-/** Zoom playable turtle layout inside the mobile table frame. */
-export const MOBILE_BOARD_CONTENT_SCALE = 1.1;
+/** Per-layer shift for stacked look on mobile (small to avoid clipping). */
+export const MOBILE_LAYER_OFFSET_X_PCT = -0.12;
+export const MOBILE_LAYER_OFFSET_Y_PCT = -0.16;
 
 /** Sum of match counts from every completed run (persisted in this browser). */
 export const STORAGE_TOTAL_SCORE = "frx-tile-rush-total-score";

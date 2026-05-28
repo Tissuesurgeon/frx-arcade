@@ -49,7 +49,7 @@ export function GameLayout({ header, center, bottom }: GameLayoutProps) {
       </header>
 
       <main className="relative z-[1] flex min-h-0 flex-col overflow-hidden px-0 py-0 sm:px-4 sm:py-2 lg:px-5">
-        <div className="@container/board flex h-full min-h-0 min-w-0 flex-1 items-center justify-center [container-type:size]">
+        <div className="@container/board flex h-full min-h-0 min-w-0 flex-1 items-start justify-stretch sm:items-center sm:justify-center [container-type:size]">
           {center}
         </div>
       </main>

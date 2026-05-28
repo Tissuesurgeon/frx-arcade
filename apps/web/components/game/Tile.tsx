@@ -32,6 +32,7 @@ type TileProps = {
   disabled: boolean;
   onTap: () => void;
   mobilePresentation?: boolean;
+  mobilePosition?: { leftPct: number; topPct: number };
 };
 
 export function Tile({
@@ -40,6 +41,7 @@ export function Tile({
   disabled,
   onTap,
   mobilePresentation = false,
+  mobilePosition,
 }: TileProps) {
   const reduceMotion = useReducedMotion();
   const label = tileLabel(tile.type);
@@ -74,8 +76,12 @@ export function Tile({
             : "opacity-[0.5]"
       } ${mobilePresentation && interactive ? "before:absolute before:-inset-2 before:content-['']" : ""}`}
       style={{
-        left: `${tile.xNorm * 100}%`,
-        top: `${tile.yNorm * 100}%`,
+        left: mobilePosition
+          ? `${mobilePosition.leftPct}%`
+          : `${tile.xNorm * 100}%`,
+        top: mobilePosition
+          ? `${mobilePosition.topPct}%`
+          : `${tile.yNorm * 100}%`,
         transform: `translate(calc(-50% + ${layerX}%), calc(-50% + ${layerY}%))`,
         width: dVar,
         aspectRatio: mobilePresentation ? String(MOBILE_TILE_ASPECT) : "1",
@@ -107,7 +113,7 @@ export function Tile({
     >
       <span
         aria-hidden
-        className={`select-none ${mobilePresentation ? "text-base font-extrabold" : ""}`}
+        className={`select-none ${mobilePresentation ? "text-[11px] font-bold" : ""}`}
         style={{ textShadow: paint.textShadow }}
       >
         {label}

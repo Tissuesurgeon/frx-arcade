@@ -279,6 +279,80 @@ export function getTileDiameterNorm(): number {
   return getTileHalfExtentNorm() * 2;
 }
 
+export type MobileBoardFit = {
+  tileDiameterPct: number;
+  mapPosition: (xNorm: number, yNorm: number) => { leftPct: number; topPct: number };
+};
+
+/**
+ * Fit the full turtle layout into a mobile board: top-aligned, horizontally
+ * distributed, tiles shrunk until every tile edge stays inside the frame.
+ */
+export function computeMobileBoardFit(
+  tileScale: number,
+  tileAspect: number
+): MobileBoardFit {
+  const slots = buildSlotPositions();
+  const padX = 0.028;
+  const padTop = 0.01;
+  const padBottom = 0.016;
+  const availW = 1 - 2 * padX;
+  const availH = 1 - padTop - padBottom;
+
+  let diameter = getTileDiameterNorm() * tileScale;
+
+  for (let i = 0; i < 10; i++) {
+    const halfW = diameter / 2;
+    const halfH = halfW / tileAspect;
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    for (const s of slots) {
+      minX = Math.min(minX, s.xNorm - halfW);
+      maxX = Math.max(maxX, s.xNorm + halfW);
+      minY = Math.min(minY, s.yNorm - halfH);
+      maxY = Math.max(maxY, s.yNorm + halfH);
+    }
+
+    const cw = maxX - minX;
+    const ch = maxY - minY;
+    if (cw <= 0 || ch <= 0) break;
+
+    const fit = Math.min(availW / cw, availH / ch, 1);
+    if (fit >= 0.992) break;
+    diameter *= fit * 0.97;
+  }
+
+  const halfW = diameter / 2;
+  const halfH = halfW / tileAspect;
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+
+  for (const s of slots) {
+    minX = Math.min(minX, s.xNorm - halfW);
+    maxX = Math.max(maxX, s.xNorm + halfW);
+    minY = Math.min(minY, s.yNorm - halfH);
+    maxY = Math.max(maxY, s.yNorm + halfH);
+  }
+
+  const cw = Math.max(maxX - minX, 1e-6);
+  const ch = Math.max(maxY - minY, 1e-6);
+
+  const mapPosition = (xNorm: number, yNorm: number) => ({
+    leftPct: (padX + ((xNorm - minX) / cw) * availW) * 100,
+    topPct: (padTop + ((yNorm - minY) / ch) * availH) * 100,
+  });
+
+  return {
+    tileDiameterPct: diameter * 100,
+    mapPosition,
+  };
+}
+
 /** Game slots with normalized centers in [0, 1] (square fit). */
 export function buildSlotPositions(): BoardPosition[] {
   const { slots } = getNormalizedLayout();
