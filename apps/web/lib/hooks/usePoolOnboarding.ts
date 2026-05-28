@@ -57,7 +57,7 @@ export function usePoolOnboarding() {
         });
 
         if (existing.enrolled && !existing.completed) {
-          router.push(`/play?tournament=${tournamentId}&fresh=1`);
+          router.push(`/play?tournament=${tournamentId}`);
           return;
         }
 
@@ -93,7 +93,7 @@ export function usePoolOnboarding() {
           setCreditBalance(newBalance);
         }
 
-        router.push(`/play?tournament=${tournamentId}&fresh=1`);
+        router.push(`/play?tournament=${tournamentId}`);
       } catch (err) {
         setError(formatApiError(err));
       } finally {

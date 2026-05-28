@@ -174,7 +174,7 @@ export function TournamentPoolCard({
             disabled={loading}
             onClick={() => onJoin(tournament.id)}
           >
-            {loading ? "Loading…" : "Continue playing"}
+            {loading ? "Loading…" : "Continue"}
           </Button>
         ) : weeklyBlocked ? (
           <p className="text-center text-xs text-amber-300">
@@ -206,7 +206,7 @@ export function TournamentPoolCard({
                 ? "Pool full"
                 : needsCredits
                   ? "Need more credits"
-                  : "Join & play"}
+                  : "Join pool"}
           </Button>
         )}
       </div>

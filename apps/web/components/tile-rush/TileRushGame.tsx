@@ -17,14 +17,6 @@ import {
   shuffleBoardTileTypes,
 } from "@/lib/tile-rush/board";
 import type { GamePhase, Tile, TrayTile } from "@/lib/tile-rush/types";
-import {
-  getTrayMax,
-  MAX_ATTEMPTS,
-  ROUND_TIME_SECONDS,
-  SHUFFLES_PER_RUN,
-} from "@/lib/tile-rush/constants";
-import { addRunScoreToTotal, readTotalScore } from "@/lib/tile-rush/storage";
-import { tileLayoutTransition, MATCH_CLEAR_MS } from "@/lib/tile-rush/motion";
 
 export type RunCompletePayload = {
   attemptIndex: number;
@@ -37,6 +29,9 @@ type TileRushGameProps = {
   sessionKey: number;
   initialAttempt?: number;
   onRunComplete?: (payload: RunCompletePayload) => void;
+  onRetryRequested?: () => void;
+  submitting?: boolean;
+  submitComplete?: boolean;
   rewardPoolCredits?: number;
   playerCount?: number;
   maxPlayers?: number;
@@ -47,6 +42,9 @@ export function TileRushGame({
   sessionKey,
   initialAttempt = 1,
   onRunComplete,
+  onRetryRequested,
+  submitting = false,
+  submitComplete = false,
   rewardPoolCredits,
   playerCount,
   maxPlayers,
@@ -68,9 +66,16 @@ export function TileRushGame({
   const [totalScore, setTotalScore] = useState(0);
   const [shufflesLeft, setShufflesLeft] = useState(SHUFFLES_PER_RUN);
   const [shuffleTick, setShuffleTick] = useState(0);
+  const initialAttemptRef = useRef(initialAttempt);
+  initialAttemptRef.current = initialAttempt;
+  const prevPhaseRef = useRef<GamePhase>("playing");
+  const { muted, play, toggleMute } = useGameSound();
 
   useEffect(() => {
-    const attempt = Math.min(Math.max(initialAttempt, 1), MAX_ATTEMPTS);
+    const attempt = Math.min(
+      Math.max(initialAttemptRef.current, 1),
+      MAX_ATTEMPTS
+    );
     setCurrentAttempt(attempt);
     setBoardTiles(createInitialBoard(attempt));
     setTray([]);
@@ -83,11 +88,12 @@ export function TileRushGame({
     finalizedAttemptRef.current = null;
     runStartedAtRef.current = Date.now();
     resolvingTrayRef.current = false;
+    prevPhaseRef.current = "playing";
     if (matchClearTimerRef.current !== null) {
       window.clearTimeout(matchClearTimerRef.current);
       matchClearTimerRef.current = null;
     }
-  }, [sessionKey, initialAttempt]);
+  }, [sessionKey]);
 
   useEffect(() => {
     finalizedAttemptRef.current = null;
@@ -104,6 +110,20 @@ export function TileRushGame({
     }, 1000);
     return () => window.clearInterval(id);
   }, [phase]);
+
+  useEffect(() => {
+    if (phase !== "playing") return;
+    if (secondsLeft > 10 || secondsLeft <= 0) return;
+    play("tick");
+  }, [phase, secondsLeft, play]);
+
+  useEffect(() => {
+    if (prevPhaseRef.current === phase) return;
+    if (phase === "cleared") play("cleared");
+    else if (phase === "gameOver") play("gameOver");
+    else if (phase === "timeUp") play("timeUp");
+    prevPhaseRef.current = phase;
+  }, [phase, play]);
 
   const recordRunIfNeeded = useCallback(
     (runScore: number, endPhase: GamePhase) => {
@@ -149,6 +169,8 @@ export function TileRushGame({
         return;
       }
 
+      play("pick");
+
       const nextBoard = boardTiles.filter((t) => t.id !== tile.id);
       const trayWithNewTile = addTileToTrayGrouped(tray, {
         id: tile.id,
@@ -175,6 +197,7 @@ export function TileRushGame({
       };
 
       if (resolved.matches > 0) {
+        play("match");
         resolvingTrayRef.current = true;
         setTray(trayWithNewTile);
         if (matchClearTimerRef.current !== null) {
@@ -192,29 +215,21 @@ export function TileRushGame({
       setTray(finalTray);
       finishTurn();
     },
-    [boardDisabled, boardTiles, tray, score, recordRunIfNeeded]
+    [boardDisabled, boardTiles, tray, score, recordRunIfNeeded, play]
   );
 
   const onShuffle = useCallback(() => {
     if (boardDisabled || shufflesLeft <= 0 || boardTiles.length === 0) return;
+    play("shuffle");
     setBoardTiles((prev) => shuffleBoardTileTypes(prev));
     setShufflesLeft((n) => n - 1);
     setShuffleTick((t) => t + 1);
-  }, [boardDisabled, shufflesLeft, boardTiles.length]);
+  }, [boardDisabled, shufflesLeft, boardTiles.length, play]);
 
   const onRetry = useCallback(() => {
     if (currentAttempt >= MAX_ATTEMPTS) return;
-    const next = currentAttempt + 1;
-    setCurrentAttempt(next);
-    setBoardTiles(createInitialBoard(next));
-    setTray([]);
-    setScore(0);
-    setPhase("playing");
-    setSecondsLeft(ROUND_TIME_SECONDS);
-    setShufflesLeft(SHUFFLES_PER_RUN);
-    setShuffleTick(0);
-    runStartedAtRef.current = Date.now();
-  }, [currentAttempt]);
+    onRetryRequested?.();
+  }, [currentAttempt, onRetryRequested]);
 
   const modalOpen = phase !== "playing";
   const canRetry = currentAttempt < MAX_ATTEMPTS;
@@ -237,6 +252,8 @@ export function TileRushGame({
                   playerCount={playerCount}
                   maxPlayers={maxPlayers}
                   tournamentType={tournamentType}
+                  soundMuted={muted}
+                  onToggleSound={toggleMute}
                 />
               }
               center={
@@ -276,6 +293,8 @@ export function TileRushGame({
         score={score}
         canRetry={canRetry}
         onRetry={onRetry}
+        submitting={submitting}
+        submitComplete={submitComplete}
       />
     </>
   );

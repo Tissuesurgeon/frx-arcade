@@ -9,6 +9,8 @@ type GameEndModalProps = {
   score: number;
   canRetry: boolean;
   onRetry: () => void;
+  submitting?: boolean;
+  submitComplete?: boolean;
 };
 
 export function GameEndModal({
@@ -17,6 +19,8 @@ export function GameEndModal({
   score,
   canRetry,
   onRetry,
+  submitting = false,
+  submitComplete = false,
 }: GameEndModalProps) {
   const reduceMotion = useReducedMotion();
   const title =
@@ -85,14 +89,24 @@ export function GameEndModal({
             <p className="mt-1 text-center text-xs text-slate-500">
               Score (matches)
             </p>
+            {submitting ? (
+              <p className="mt-4 text-center text-sm text-amber-300">
+                Sign score in wallet…
+              </p>
+            ) : canRetry && submitComplete ? (
+              <p className="mt-4 text-center text-sm text-emerald-400/90">
+                Score submitted. Ready for your next attempt.
+              </p>
+            ) : null}
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
               {canRetry ? (
                 <Button
                   variant="primary"
                   className="w-full sm:w-auto"
+                  disabled={submitting || !submitComplete}
                   onClick={onRetry}
                 >
-                  Retry
+                  {submitting ? "Submitting…" : "Retry"}
                 </Button>
               ) : (
                 <Button

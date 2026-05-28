@@ -2,7 +2,7 @@
 
 import type { ComponentType, ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import { Clock, Coins, Layers, Trophy, Users } from "lucide-react";
+import { Clock, Coins, Layers, Trophy, Users, Volume2, VolumeX } from "lucide-react";
 import { fullDailyRewardPool } from "@frx/shared";
 
 type GameHeaderProps = {
@@ -16,6 +16,8 @@ type GameHeaderProps = {
   playerCount?: number;
   maxPlayers?: number;
   tournamentType?: string;
+  soundMuted?: boolean;
+  onToggleSound?: () => void;
 };
 
 function formatTime(totalSeconds: number): string {
@@ -52,6 +54,8 @@ export function GameHeader({
   playerCount,
   maxPlayers = 10,
   tournamentType,
+  soundMuted,
+  onToggleSound,
 }: GameHeaderProps) {
   const reduceMotion = useReducedMotion();
   const scoreStr = score.toLocaleString();
@@ -104,6 +108,21 @@ export function GameHeader({
             {formatTime(secondsRemaining)}
           </span>
         </div>
+
+        {onToggleSound ? (
+          <button
+            type="button"
+            onClick={onToggleSound}
+            aria-label={soundMuted ? "Unmute game sounds" : "Mute game sounds"}
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-black/25 text-slate-300 transition hover:border-cyan-500/30 hover:text-cyan-200"
+          >
+            {soundMuted ? (
+              <VolumeX className="h-3.5 w-3.5" strokeWidth={1.75} />
+            ) : (
+              <Volume2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+            )}
+          </button>
+        ) : null}
       </div>
 
       {(totalScore !== undefined ||

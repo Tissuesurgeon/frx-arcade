@@ -22,10 +22,14 @@ function PlayContent() {
   const sp = useSearchParams();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const [sessionKey, setSessionKey] = useState(0);
+  const [runKey, setRunKey] = useState(0);
+  const [runActive, setRunActive] = useState(false);
+  const [attemptToPlay, setAttemptToPlay] = useState(1);
   const [attemptScores, setAttemptScores] = useState<number[]>([]);
   const [status, setStatus] = useState<string>("");
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitComplete, setSubmitComplete] = useState(false);
   const [gateError, setGateError] = useState<string | null>(null);
   const [joining, setJoining] = useState(false);
   const { token, creditBalance, setCreditBalance } = useSessionStore();
@@ -34,17 +38,6 @@ function PlayContent() {
   const { isSignedIn } = useWalletAuth();
 
   const queryTournamentId = sp.get("tournament");
-
-  useEffect(() => {
-    if (sp.get("fresh") !== "1") return;
-    setSessionKey((k) => k + 1);
-    setAttemptScores([]);
-    setStatus("");
-    setSubmitError(null);
-    const next = new URLSearchParams(sp.toString());
-    next.delete("fresh");
-    router.replace(`/play${next.size ? `?${next}` : ""}`, { scroll: false });
-  }, [sp, router]);
 
   const { data: tournamentData } = useQuery({
     queryKey: ["tournaments"],
@@ -73,12 +66,21 @@ function PlayContent() {
   });
 
   useEffect(() => {
+    setRunActive(false);
+    setRunKey(0);
+    setSubmitting(false);
+    setSubmitComplete(false);
+    setSubmitError(null);
+    setStatus("");
+  }, [tournamentId]);
+
+  useEffect(() => {
     if (participantStatus?.completed) {
       router.replace("/dashboard?completed=1");
     }
   }, [participantStatus?.completed, router]);
 
-  const initialAttempt = useMemo(() => {
+  const nextAttempt = useMemo(() => {
     if (!participantStatus?.enrolled) return 1;
     if (participantStatus.completed) return MAX_ATTEMPTS_PER_TOURNAMENT;
     return Math.min(
@@ -92,6 +94,32 @@ function PlayContent() {
       setAttemptScores([...participantStatus.attemptScores]);
     }
   }, [participantStatus?.attemptScores]);
+
+  const startRun = useCallback(() => {
+    if (!participantStatus?.enrolled) return;
+    const attempt = Math.min(
+      participantStatus.attemptsUsed + 1,
+      MAX_ATTEMPTS_PER_TOURNAMENT
+    );
+    setAttemptToPlay(attempt);
+    setRunActive(true);
+    setSubmitComplete(false);
+    setSubmitError(null);
+    setStatus("");
+    setRunKey((k) => k + 1);
+  }, [participantStatus]);
+
+  const handleRetryRequested = useCallback(() => {
+    if (!participantStatus?.enrolled) return;
+    const attempt = Math.min(
+      participantStatus.attemptsUsed + 1,
+      MAX_ATTEMPTS_PER_TOURNAMENT
+    );
+    setAttemptToPlay(attempt);
+    setSubmitComplete(false);
+    setSubmitError(null);
+    setRunKey((k) => k + 1);
+  }, [participantStatus]);
 
   const handleJoinFromGate = useCallback(async () => {
     if (!token || !tournamentId || !activeTournament) return;
@@ -130,7 +158,7 @@ function PlayContent() {
         queryKey: ["participant", tournamentId, token],
       });
       await queryClient.invalidateQueries({ queryKey: ["tournaments"] });
-      setSessionKey((k) => k + 1);
+      setRunActive(false);
     } catch (err) {
       setGateError(formatApiError(err));
     } finally {
@@ -149,14 +177,16 @@ function PlayContent() {
     async (payload: RunCompletePayload) => {
       if (!token || !tournamentId) {
         setSubmitError("Sign in and join a pool to submit scores.");
-        return;
+        return false;
       }
       if (!participantStatus?.enrolled) {
         setSubmitError("Not enrolled in this tournament.");
-        return;
+        return false;
       }
 
       setSubmitError(null);
+      setSubmitting(true);
+      setSubmitComplete(false);
       try {
         const eventHash = btoa(
           JSON.stringify({
@@ -203,8 +233,13 @@ function PlayContent() {
         await queryClient.invalidateQueries({
           queryKey: ["participant", tournamentId, token],
         });
+        setSubmitComplete(true);
+        return true;
       } catch (err) {
         setSubmitError(formatApiError(err));
+        return false;
+      } finally {
+        setSubmitting(false);
       }
     },
     [token, tournamentId, participantStatus?.enrolled, signMessageAsync, queryClient]
@@ -299,6 +334,50 @@ function PlayContent() {
 
   const showTournamentStatus = !!status || !!submitError;
 
+  if (!runActive) {
+    return (
+      <div className="flex h-full min-h-0 flex-col">
+        {activeTournament ? (
+          <div className="pointer-events-auto shrink-0 border-b border-white/5 bg-black/20 px-3 py-1.5 text-center text-xs text-slate-300">
+            <span className="font-semibold text-white">{activeTournament.title}</span>
+            <span className="mx-1.5 text-slate-600">·</span>
+            <span className="text-amber-300/90">
+              {activeTournament.entryFeeCredits} FRX paid
+            </span>
+            <span className="mx-1.5 text-slate-600">·</span>
+            <span className="text-cyan-300/90">
+              {creditBalance.toLocaleString()} FRX
+            </span>
+            <span className="mx-1.5 text-slate-600">·</span>
+            <span className="text-emerald-400/90">
+              Attempt {nextAttempt}/{MAX_ATTEMPTS_PER_TOURNAMENT}
+            </span>
+          </div>
+        ) : null}
+        <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8 text-center">
+          <p className="text-lg font-semibold text-white">
+            {activeTournament?.title ?? "Tournament pool"}
+          </p>
+          <p className="text-sm text-slate-400">
+            Attempt {nextAttempt} of {MAX_ATTEMPTS_PER_TOURNAMENT}
+            {total > 0 ? (
+              <>
+                {" · "}
+                <span className="text-cyan-300">Total score: {total}</span>
+              </>
+            ) : null}
+          </p>
+          <Button variant="primary" onClick={startRun}>
+            Start game
+          </Button>
+          <Link href="/dashboard" className="text-sm text-slate-400 underline hover:text-slate-300">
+            Back to dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       {activeTournament || showTournamentStatus ? (
@@ -322,7 +401,7 @@ function PlayContent() {
               </span>
               <span className="mx-1.5 text-slate-600">·</span>
               <span className="text-emerald-400/90">
-                Attempt {initialAttempt}/{MAX_ATTEMPTS_PER_TOURNAMENT}
+                Attempt {attemptToPlay}/{MAX_ATTEMPTS_PER_TOURNAMENT}
               </span>
             </>
           ) : null}
@@ -349,9 +428,12 @@ function PlayContent() {
 
       <div className="min-h-0 flex-1">
         <TileRushGame
-          sessionKey={sessionKey}
-          initialAttempt={initialAttempt}
+          sessionKey={runKey}
+          initialAttempt={attemptToPlay}
           onRunComplete={onRunComplete}
+          onRetryRequested={handleRetryRequested}
+          submitting={submitting}
+          submitComplete={submitComplete}
           rewardPoolCredits={
             activeTournament?.rewardPoolCredits ??
             activeTournament?.prizePoolCredits
